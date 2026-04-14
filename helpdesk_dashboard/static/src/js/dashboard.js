@@ -2,7 +2,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, onMounted, useState, useRef, xml } from "@odoo/owl";
+import { Component, onMounted, useState, useRef } from "@odoo/owl";
 
 const COLORS = {
     blue:   '#378ADD',
@@ -31,132 +31,7 @@ function stageBadgeClass(stage) {
 }
 
 class HelpdeskDashboard extends Component {
-    static template = xml`
-<div class="helpdesk-dashboard">
-    <div class="hd-topbar">
-        <h1>Helpdesk Manager Dashboard</h1>
-        <div class="hd-filters">
-            <select t-on-change="onPeriodChange">
-                <option value="1">Last 1 month</option>
-                <option value="3">Last 3 months</option>
-                <option value="6">Last 6 months</option>
-                <option value="12">Last 12 months</option>
-            </select>
-            <select t-on-change="onTeamChange">
-                <option value="all">All teams</option>
-                <t t-foreach="state.teams" t-as="team" t-key="team.id">
-                    <option t-att-value="team.id" t-esc="team.name"/>
-                </t>
-            </select>
-            <button t-on-click="fetchData">Refresh</button>
-        </div>
-    </div>
-
-    <t t-if="state.loading">
-        <div class="hd-loading">Loading dashboard data...</div>
-    </t>
-
-    <t t-if="!state.loading">
-        <!-- Metric Cards -->
-        <div class="hd-metrics">
-            <div class="hd-metric">
-                <div class="hd-metric-label">Open tickets</div>
-                <div class="hd-metric-value" style="color:#2c2c2a;" t-esc="state.metrics.total"/>
-                <div class="hd-metric-sub">Not closed</div>
-            </div>
-            <div class="hd-metric">
-                <div class="hd-metric-label">Assigned</div>
-                <div class="hd-metric-value" style="color:#BA7517;" t-esc="state.metrics.assigned"/>
-                <div class="hd-metric-sub">In progress</div>
-            </div>
-            <div class="hd-metric">
-                <div class="hd-metric-label">Resolved</div>
-                <div class="hd-metric-value" style="color:#3B6D11;" t-esc="state.metrics.resolved"/>
-                <div class="hd-metric-sub">This period</div>
-            </div>
-            <div class="hd-metric">
-                <div class="hd-metric-label">Unassigned</div>
-                <div class="hd-metric-value" style="color:#185FA5;" t-esc="state.metrics.unassigned"/>
-                <div class="hd-metric-sub">Needs assignment</div>
-            </div>
-        </div>
-
-        <!-- Row 1: Tech charts -->
-        <div class="hd-grid-2">
-            <div class="hd-card">
-                <div class="hd-card-title">Ongoing — by assigned tech</div>
-                <div class="hd-legend">
-                    <span><span class="hd-legend-dot" style="background:#378ADD;"></span>Open tickets</span>
-                </div>
-                <div class="hd-chart-wrap"><canvas t-ref="techOngoing"/></div>
-            </div>
-            <div class="hd-card">
-                <div class="hd-card-title">Period — by assigned tech</div>
-                <div class="hd-legend">
-                    <span><span class="hd-legend-dot" style="background:#EF9F27;"></span>Tickets in period</span>
-                </div>
-                <div class="hd-chart-wrap"><canvas t-ref="techPeriod"/></div>
-            </div>
-        </div>
-
-        <!-- Row 2: Hour + Date -->
-        <div class="hd-grid-2">
-            <div class="hd-card">
-                <div class="hd-card-title">By hour of day opened</div>
-                <div class="hd-legend">
-                    <span><span class="hd-legend-dot" style="background:#378ADD;"></span>Tickets opened</span>
-                </div>
-                <div class="hd-chart-wrap"><canvas t-ref="hour"/></div>
-            </div>
-            <div class="hd-card">
-                <div class="hd-card-title">By date opened</div>
-                <div class="hd-legend">
-                    <span><span class="hd-legend-dot" style="background:#639922;"></span>Tickets</span>
-                </div>
-                <div class="hd-chart-wrap"><canvas t-ref="date"/></div>
-            </div>
-        </div>
-
-        <!-- Row 3: Status + Location + Type -->
-        <div class="hd-grid-3">
-            <div class="hd-card">
-                <div class="hd-card-title">By status</div>
-                <div class="hd-chart-wrap"><canvas t-ref="status"/></div>
-            </div>
-            <div class="hd-card">
-                <div class="hd-card-title">By team / location</div>
-                <div class="hd-chart-wrap"><canvas t-ref="location"/></div>
-            </div>
-            <div class="hd-card">
-                <div class="hd-card-title">By request type</div>
-                <div class="hd-legend">
-                    <span><span class="hd-legend-dot" style="background:#534AB7;"></span>Type</span>
-                </div>
-                <div class="hd-chart-wrap"><canvas t-ref="type"/></div>
-            </div>
-        </div>
-
-        <!-- Recent Activity -->
-        <div class="hd-card">
-            <div class="hd-card-title">Recent ticket activity</div>
-            <ul class="hd-activity">
-                <t t-foreach="state.activity" t-as="ticket" t-key="ticket.id">
-                    <li class="hd-activity-item">
-                        <span class="hd-ticket-num">#<t t-esc="ticket.number"/></span>
-                        <div class="hd-ticket-info">
-                            <div class="hd-ticket-desc" t-esc="ticket.name"/>
-                            <div class="hd-ticket-meta">
-                                <t t-esc="ticket.user"/> · <t t-esc="ticket.partner"/> · <t t-esc="ticket.date"/>
-                            </div>
-                        </div>
-                        <span t-attf-class="hd-badge {{ stageBadgeClass(ticket.stage) }}" t-esc="ticket.stage"/>
-                    </li>
-                </t>
-            </ul>
-        </div>
-    </t>
-</div>
-`;
+    static template = "helpdesk_dashboard.Dashboard";
 
     setup() {
         this.rpc = useService("rpc");

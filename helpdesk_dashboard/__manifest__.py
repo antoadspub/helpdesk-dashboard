@@ -12,6 +12,7 @@
         'web.assets_backend': [
             'helpdesk_dashboard/static/src/css/dashboard.css',
             'helpdesk_dashboard/static/src/js/dashboard.js',
+            'helpdesk_dashboard/static/src/xml/dashboard.xml',
         ],
     },
     'installable': True,

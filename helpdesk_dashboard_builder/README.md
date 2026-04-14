@@ -2,7 +2,7 @@
 
 This module adds a configurable Helpdesk dashboard for managers with drag-and-drop layout control.
 
-## Widget metrics included
+## Required widget metrics
 
 Each metric can be shown as **Counter** or **Chart**:
 
@@ -12,12 +12,14 @@ Each metric can be shown as **Counter** or **Chart**:
 - Ticket category wise active tickets
 - Stage wise active tickets
 
-## Usage
+## How to configure these requirements
 
-1. Go to **Helpdesk Dashboard > Layouts** and create a layout.
-2. Add widgets and choose `Widget Type` (Counter/Chart).
-3. Optionally set period, size, and extra domain.
-4. Open **Helpdesk Dashboard > Dashboard** and drag widgets to reorder.
+1. Go to **Helpdesk Dashboard > Layouts** and create/open a layout.
+2. Click **Generate Required Widgets** (creates the five required widgets automatically).
+3. In the Widgets list, set **Widget Type** as `Counter` or `Chart` per metric.
+4. In **Metric**, choose one of the required metrics listed above.
+5. Optionally set period, width/height, and extra domain.
+6. Open **Helpdesk Dashboard > Dashboard** and drag widgets to reorder.
 
 ## Notes
 

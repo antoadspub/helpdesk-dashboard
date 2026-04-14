@@ -19,6 +19,12 @@
         <field name="model">helpdesk.dashboard.layout</field>
         <field name="arch" type="xml">
             <form>
+                <header>
+                    <button name="action_generate_default_widgets"
+                            type="object"
+                            string="Generate Required Widgets"
+                            class="btn-primary"/>
+                </header>
                 <sheet>
                     <group>
                         <field name="name"/>
@@ -34,11 +40,24 @@
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
                                     <field name="widget_type"/>
+                                    <field name="metric_key"/>
                                     <field name="period"/>
                                     <field name="width"/>
                                     <field name="height"/>
                                     <field name="domain"/>
                                 </list>
+                                <form>
+                                    <group>
+                                        <field name="name"/>
+                                        <field name="widget_type"/>
+                                        <field name="metric_key"/>
+                                        <field name="period"/>
+                                        <field name="width"/>
+                                        <field name="height"/>
+                                        <field name="domain"/>
+                                        <field name="sequence"/>
+                                    </group>
+                                </form>
                             </field>
                         </page>
                     </notebook>

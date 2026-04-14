@@ -22,6 +22,34 @@ class HelpdeskDashboardLayout(models.Model):
         )
     ]
 
+
+    def action_generate_default_widgets(self):
+        """Create the required five widgets for each layout if missing."""
+        metric_specs = [
+            ("assigned_engineer_active", "Assigned engineer active tickets"),
+            ("assigned_engineer_closed_2m", "Assigned engineer closed tickets in last 2 months"),
+            ("company_wise", "Company wise tickets"),
+            ("category_wise_active", "Ticket category wise active tickets"),
+            ("stage_wise_active", "Stage wise active tickets"),
+        ]
+        for layout in self:
+            existing_metrics = set(layout.widget_ids.mapped("metric_key"))
+            sequence = (max(layout.widget_ids.mapped("sequence")) if layout.widget_ids else 0) + 10
+            for metric_key, label in metric_specs:
+                if metric_key in existing_metrics:
+                    continue
+                self.env["helpdesk.dashboard.widget"].create({
+                    "layout_id": layout.id,
+                    "name": label,
+                    "widget_type": "chart",
+                    "metric_key": metric_key,
+                    "period": "30d",
+                    "width": "half",
+                    "sequence": sequence,
+                })
+                sequence += 10
+        return True
+
     @api.model
     def get_current_layout(self):
         user_layout = self.search([

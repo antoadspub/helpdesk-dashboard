@@ -1,0 +1,212 @@
+.helpdesk-dashboard {
+    padding: 16px;
+    background: #f8f8f6;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.hd-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.hd-topbar h1 {
+    font-size: 18px;
+    font-weight: 500;
+    color: #2c2c2a;
+    margin: 0;
+}
+
+.hd-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.hd-filters select {
+    font-size: 13px;
+    padding: 5px 10px;
+    border: 1px solid #d3d1c7;
+    border-radius: 6px;
+    background: #fff;
+    color: #2c2c2a;
+    cursor: pointer;
+}
+
+.hd-filters button {
+    font-size: 13px;
+    padding: 5px 14px;
+    border: 1px solid #d3d1c7;
+    border-radius: 6px;
+    background: #fff;
+    color: #2c2c2a;
+    cursor: pointer;
+}
+
+.hd-filters button:hover { background: #f1efe8; }
+
+.hd-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.hd-metric {
+    background: #fff;
+    border: 1px solid #e8e6df;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.hd-metric-label {
+    font-size: 11px;
+    color: #888780;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.hd-metric-value {
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.1;
+}
+
+.hd-metric-sub {
+    font-size: 11px;
+    margin-top: 3px;
+    color: #888780;
+}
+
+.hd-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.hd-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.hd-card {
+    background: #fff;
+    border: 1px solid #e8e6df;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.hd-card-title {
+    font-size: 11px;
+    font-weight: 500;
+    color: #888780;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 10px;
+}
+
+.hd-chart-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.hd-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: #888780;
+}
+
+.hd-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.hd-activity {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.hd-activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1efe8;
+}
+
+.hd-activity-item:last-child { border-bottom: none; }
+
+.hd-ticket-num {
+    font-size: 11px;
+    font-weight: 500;
+    color: #185fa5;
+    min-width: 44px;
+    padding-top: 1px;
+}
+
+.hd-ticket-info { flex: 1; min-width: 0; }
+
+.hd-ticket-desc {
+    font-size: 13px;
+    color: #2c2c2a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hd-ticket-meta {
+    font-size: 11px;
+    color: #888780;
+    margin-top: 2px;
+}
+
+.hd-badge {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.hd-badge-open    { background: #e6f1fb; color: #0c447c; }
+.hd-badge-assigned { background: #faeeda; color: #633806; }
+.hd-badge-resolved { background: #eaf3de; color: #27500a; }
+.hd-badge-closed  { background: #f1efe8; color: #444441; }
+.hd-badge-default { background: #f1efe8; color: #444441; }
+
+.hd-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #888780;
+    font-size: 14px;
+}
+
+@media (max-width: 900px) {
+    .hd-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hd-grid-3  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+    .hd-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hd-grid-2  { grid-template-columns: 1fr; }
+    .hd-grid-3  { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Dashboard client action -->
+    <record id="action_helpdesk_dashboard" model="ir.actions.client">
+        <field name="name">Helpdesk Dashboard</field>
+        <field name="tag">helpdesk_dashboard</field>
+    </record>
+
+    <!-- Menu item under Helpdesk -->
+    <record id="menu_helpdesk_dashboard" model="ir.ui.menu">
+        <field name="name">Dashboard</field>
+        <field name="parent_id" ref="helpdesk_mgmt.helpdesk_ticket_main_menu"/>
+        <field name="action" ref="action_helpdesk_dashboard"/>
+        <field name="sequence">1</field>
+        <field name="groups_id" eval="[(6,0,[
+            ref('helpdesk_mgmt.group_helpdesk_manager'),
+            ref('helpdesk_mgmt.group_helpdesk_user'),
+        ])]"/>
+    </record>
+
+</odoo>

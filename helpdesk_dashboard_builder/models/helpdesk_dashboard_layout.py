@@ -88,18 +88,27 @@ class HelpdeskDashboardWidget(models.Model):
         start = fields.Datetime.subtract(fields.Datetime.now(), days=days)
         return [("create_date", ">=", start)]
 
+    def _stage_domain(self, is_closed):
+        if "helpdesk.ticket.stage" not in self.env:
+            return []
+        stage_model = self.env["helpdesk.ticket.stage"]
+        stages = stage_model.search([("is_close", "=", is_closed)])
+        if not stages:
+            return []
+        return [("stage_id", "in", stages.ids)]
+
     def _metric_domain_and_group_field(self):
         self.ensure_one()
         closed_since = fields.Datetime.subtract(fields.Datetime.now(), months=2)
         mapping = {
             "assigned_engineer_active": {
-                "domain": [("user_id", "!=", False), ("stage_id.is_close", "=", False)],
+                "domain": [("user_id", "!=", False)] + self._stage_domain(False),
                 "group_field": "user_id",
             },
             "assigned_engineer_closed_2m": {
                 "domain": [
                     ("user_id", "!=", False),
-                    ("stage_id.is_close", "=", True),
+                ] + self._stage_domain(True) + [
                     ("close_date", ">=", closed_since),
                 ],
                 "group_field": "user_id",
@@ -109,11 +118,11 @@ class HelpdeskDashboardWidget(models.Model):
                 "group_field": "partner_id",
             },
             "category_wise_active": {
-                "domain": [("stage_id.is_close", "=", False)],
+                "domain": self._stage_domain(False),
                 "group_field": "category_id",
             },
             "stage_wise_active": {
-                "domain": [("stage_id.is_close", "=", False)],
+                "domain": self._stage_domain(False),
                 "group_field": "stage_id",
             },
         }

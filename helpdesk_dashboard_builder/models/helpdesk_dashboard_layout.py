@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.tools.safe_eval import safe_eval
 
 
 class HelpdeskDashboardLayout(models.Model):
@@ -123,8 +124,12 @@ class HelpdeskDashboardWidget(models.Model):
         metric = self._metric_domain_and_group_field()
         base_domain = metric["domain"]
         if self.domain:
-            extra = self.env["ir.filters"]._safe_eval(self.domain)
-            base_domain = base_domain + extra
+            try:
+                extra = safe_eval(self.domain)
+            except Exception:
+                extra = []
+            if isinstance(extra, (list, tuple)):
+                base_domain = base_domain + list(extra)
         return base_domain + self._date_domain_for_period(self.period)
 
     def _grouped_series(self, model, domain, group_field):

@@ -167,15 +167,23 @@ class HelpdeskDashboard extends Component {
     }
 
     renderCharts(data) {
+        const fallback = { labels: [], data: [] };
+        const techOngoing = data.tech_ongoing || fallback;
+        const techPeriod = data.tech_period || fallback;
+        const hour = data.hour || fallback;
+        const date = data.date || fallback;
+        const status = data.status || fallback;
+        const location = data.location || fallback;
+        const type = data.type || fallback;
         // Small delay to ensure DOM is ready after state update
         setTimeout(() => {
-            this.hbar('techOngoing', data.tech_ongoing.labels, data.tech_ongoing.data, COLORS.blue);
-            this.hbar('techPeriod',  data.tech_period.labels,  data.tech_period.data,  COLORS.amber);
-            this.vbar('hour', data.hour.labels, data.hour.data, COLORS.blue);
-            this.vbar('date', data.date.labels, data.date.data, COLORS.green);
-            this.donut('status',   data.status.labels,   data.status.data,   PIE_COLORS);
-            this.donut('location', data.location.labels, data.location.data, PIE_COLORS);
-            this.hbar('type', data.type.labels, data.type.data, COLORS.purple);
+            this.hbar('techOngoing', techOngoing.labels, techOngoing.data, COLORS.blue);
+            this.hbar('techPeriod',  techPeriod.labels,  techPeriod.data,  COLORS.amber);
+            this.vbar('hour', hour.labels, hour.data, COLORS.blue);
+            this.vbar('date', date.labels, date.data, COLORS.green);
+            this.donut('status', status.labels, status.data, PIE_COLORS);
+            this.donut('location', location.labels, location.data, PIE_COLORS);
+            this.hbar('type', type.labels, type.data, COLORS.purple);
         }, 80);
     }
 

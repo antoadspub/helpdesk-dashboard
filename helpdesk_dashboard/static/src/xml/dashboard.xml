@@ -14,7 +14,9 @@
                     <select t-on-change="onTeamChange">
                         <option value="all">All teams</option>
                         <t t-foreach="state.teams" t-as="team" t-key="team.id">
-                            <option t-att-value="team.id" t-esc="team.name"/>
+                            <option t-att-value="team.id">
+                                <t t-esc="team.name"/>
+                            </option>
                         </t>
                     </select>
                     <button t-on-click="fetchData">Refresh</button>
@@ -29,22 +31,30 @@
                 <div class="hd-metrics">
                     <div class="hd-metric">
                         <div class="hd-metric-label">Open tickets</div>
-                        <div class="hd-metric-value" style="color:#2c2c2a;" t-esc="state.metrics.total"/>
+                        <div class="hd-metric-value" style="color:#2c2c2a;">
+                            <t t-esc="state.metrics.total"/>
+                        </div>
                         <div class="hd-metric-sub">Not closed</div>
                     </div>
                     <div class="hd-metric">
                         <div class="hd-metric-label">Assigned</div>
-                        <div class="hd-metric-value" style="color:#BA7517;" t-esc="state.metrics.assigned"/>
+                        <div class="hd-metric-value" style="color:#BA7517;">
+                            <t t-esc="state.metrics.assigned"/>
+                        </div>
                         <div class="hd-metric-sub">In progress</div>
                     </div>
                     <div class="hd-metric">
                         <div class="hd-metric-label">Resolved</div>
-                        <div class="hd-metric-value" style="color:#3B6D11;" t-esc="state.metrics.resolved"/>
+                        <div class="hd-metric-value" style="color:#3B6D11;">
+                            <t t-esc="state.metrics.resolved"/>
+                        </div>
                         <div class="hd-metric-sub">This period</div>
                     </div>
                     <div class="hd-metric">
                         <div class="hd-metric-label">Unassigned</div>
-                        <div class="hd-metric-value" style="color:#185FA5;" t-esc="state.metrics.unassigned"/>
+                        <div class="hd-metric-value" style="color:#185FA5;">
+                            <t t-esc="state.metrics.unassigned"/>
+                        </div>
                         <div class="hd-metric-sub">Needs assignment</div>
                     </div>
                 </div>
@@ -108,12 +118,16 @@
                             <li class="hd-activity-item">
                                 <span class="hd-ticket-num">#<t t-esc="ticket.number"/></span>
                                 <div class="hd-ticket-info">
-                                    <div class="hd-ticket-desc" t-esc="ticket.name"/>
+                                    <div class="hd-ticket-desc">
+                                        <t t-esc="ticket.name"/>
+                                    </div>
                                     <div class="hd-ticket-meta">
                                         <t t-esc="ticket.user"/> · <t t-esc="ticket.partner"/> · <t t-esc="ticket.date"/>
                                     </div>
                                 </div>
-                                <span t-attf-class="hd-badge {{ stageBadgeClass(ticket.stage) }}" t-esc="ticket.stage"/>
+                                <span t-attf-class="hd-badge {{ stageBadgeClass(ticket.stage) }}">
+                                    <t t-esc="ticket.stage"/>
+                                </span>
                             </li>
                         </t>
                     </ul>

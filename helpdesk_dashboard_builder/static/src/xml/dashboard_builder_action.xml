@@ -30,39 +30,12 @@
                                 <div class="o_hd_counter" t-esc="widget.value"/>
                             </section>
 
-                            <section t-elif="widget.type === 'chart'">
+                            <section t-else="">
                                 <ul>
                                     <t t-foreach="widget.series || []" t-as="point" t-key="point.label">
                                         <li>
                                             <span><t t-esc="point.label"/></span>
                                             <strong><t t-esc="point.value"/></strong>
-                                        </li>
-                                    </t>
-                                </ul>
-                            </section>
-
-                            <section t-elif="widget.type === 'table'">
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr><th>Ticket</th><th>Date</th><th>Priority</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        <t t-foreach="widget.rows || []" t-as="row" t-key="row.id">
-                                            <tr>
-                                                <td><t t-esc="row.name"/></td>
-                                                <td><t t-esc="row.create_date"/></td>
-                                                <td><t t-esc="row.priority"/></td>
-                                            </tr>
-                                        </t>
-                                    </tbody>
-                                </table>
-                            </section>
-
-                            <section t-else="">
-                                <ul>
-                                    <t t-foreach="widget.items || []" t-as="item" t-key="item.id">
-                                        <li>
-                                            <t t-esc="item.subject || 'Update'"/> - <t t-esc="item.date"/>
                                         </li>
                                     </t>
                                 </ul>

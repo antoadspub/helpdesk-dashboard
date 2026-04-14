@@ -34,11 +34,11 @@
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
                                     <field name="widget_type"/>
-                                    <field name="model_name"/>
-                                    <field name="group_by"/>
+                                    <field name="metric_key"/>
                                     <field name="period"/>
                                     <field name="width"/>
                                     <field name="height"/>
+                                    <field name="domain"/>
                                 </list>
                             </field>
                         </page>

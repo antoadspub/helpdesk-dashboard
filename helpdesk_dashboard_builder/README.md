@@ -1,20 +1,25 @@
 # Helpdesk Dashboard Builder (Odoo 18 CE)
 
-This module adds a configurable Helpdesk dashboard for managers:
+This module adds a configurable Helpdesk dashboard for managers with drag-and-drop layout control.
 
-- Drag-and-drop widget ordering
-- Widget sizing (full / half / third width)
-- Per-widget period filtering
-- Widget types: counter, chart, table, activity feed
-- Layout scope: user-specific or global
+## Widget metrics included
+
+Each metric can be shown as **Counter** or **Chart**:
+
+- Assigned engineer active tickets
+- Assigned engineer closed tickets in last 2 months
+- Company wise tickets
+- Ticket category wise active tickets
+- Stage wise active tickets
 
 ## Usage
 
 1. Go to **Helpdesk Dashboard > Layouts** and create a layout.
-2. Add widgets and configure their fields.
-3. Open **Helpdesk Dashboard > Dashboard** to use the drag-and-drop view.
+2. Add widgets and choose `Widget Type` (Counter/Chart) and `Metric`.
+3. Optionally set period, size, and extra domain.
+4. Open **Helpdesk Dashboard > Dashboard** and drag widgets to reorder.
 
 ## Notes
 
-- The module depends on `helpdesk_mgmt` from OCA Helpdesk.
-- Widgets read from the configured `model_name` (default: `helpdesk.ticket`).
+- Depends on OCA `helpdesk_mgmt`.
+- Default model used for metrics is `helpdesk.ticket`.

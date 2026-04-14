@@ -45,19 +45,23 @@ class HelpdeskDashboardWidget(models.Model):
     sequence = fields.Integer(default=10)
     name = fields.Char(required=True)
     widget_type = fields.Selection(
-        [
-            ("counter", "Counter"),
-            ("chart", "Chart"),
-            ("table", "Table"),
-            ("activity", "Activity Feed"),
-        ],
+        [("counter", "Counter"), ("chart", "Chart")],
         required=True,
         default="counter",
     )
+    metric_key = fields.Selection(
+        [
+            ("assigned_engineer_active", "Assigned engineer active tickets"),
+            ("assigned_engineer_closed_2m", "Assigned engineer closed tickets (last 2 months)"),
+            ("company_wise", "Company wise tickets"),
+            ("category_wise_active", "Ticket category wise active tickets"),
+            ("stage_wise_active", "Stage wise active tickets"),
+        ],
+        required=True,
+        default="assigned_engineer_active",
+    )
     model_name = fields.Char(default="helpdesk.ticket")
-    domain = fields.Char(default="[]", help="Python domain string")
-    group_by = fields.Char(help="Field name for grouping, e.g. team_id")
-    measure_field = fields.Char(help="Optional measure field for charts")
+    domain = fields.Char(default="[]", help="Extra domain as a Python domain string")
     period = fields.Selection(
         [
             ("today", "Today"),
@@ -75,65 +79,85 @@ class HelpdeskDashboardWidget(models.Model):
         required=True,
     )
     height = fields.Integer(default=260)
-    pos_x = fields.Integer(default=0)
-    pos_y = fields.Integer(default=0)
 
     def _date_domain_for_period(self, period):
         if period == "all":
             return []
-        days = {
-            "today": 0,
-            "7d": 7,
-            "30d": 30,
-            "90d": 90,
-        }.get(period, 30)
+        days = {"today": 0, "7d": 7, "30d": 30, "90d": 90}.get(period, 30)
         start = fields.Datetime.subtract(fields.Datetime.now(), days=days)
         return [("create_date", ">=", start)]
 
+    def _metric_domain_and_group_field(self):
+        self.ensure_one()
+        closed_since = fields.Datetime.subtract(fields.Datetime.now(), months=2)
+        mapping = {
+            "assigned_engineer_active": {
+                "domain": [("user_id", "!=", False), ("stage_id.is_close", "=", False)],
+                "group_field": "user_id",
+            },
+            "assigned_engineer_closed_2m": {
+                "domain": [
+                    ("user_id", "!=", False),
+                    ("stage_id.is_close", "=", True),
+                    ("close_date", ">=", closed_since),
+                ],
+                "group_field": "user_id",
+            },
+            "company_wise": {
+                "domain": [],
+                "group_field": "partner_id",
+            },
+            "category_wise_active": {
+                "domain": [("stage_id.is_close", "=", False)],
+                "group_field": "category_id",
+            },
+            "stage_wise_active": {
+                "domain": [("stage_id.is_close", "=", False)],
+                "group_field": "stage_id",
+            },
+        }
+        return mapping[self.metric_key]
+
     def _build_domain(self):
         self.ensure_one()
-        base_domain = []
+        metric = self._metric_domain_and_group_field()
+        base_domain = metric["domain"]
         if self.domain:
-            base_domain = self.env["ir.filters"]._safe_eval(self.domain)
+            extra = self.env["ir.filters"]._safe_eval(self.domain)
+            base_domain = base_domain + extra
         return base_domain + self._date_domain_for_period(self.period)
+
+    def _grouped_series(self, model, domain, group_field):
+        grouped = model.read_group(domain, ["id:count"], [group_field], lazy=False)
+        return [
+            {
+                "label": item.get(group_field) and item[group_field][1] or "Undefined",
+                "value": item.get("id_count", 0),
+            }
+            for item in grouped
+        ]
 
     def get_widget_payload(self):
         self.ensure_one()
         model = self.env[self.model_name]
+        metric = self._metric_domain_and_group_field()
         domain = self._build_domain()
+
         payload = {
             "id": self.id,
             "name": self.name,
             "type": self.widget_type,
+            "metric_key": self.metric_key,
             "width": self.width,
             "height": self.height,
             "sequence": self.sequence,
-            "group_by": self.group_by,
             "period": self.period,
         }
 
         if self.widget_type == "counter":
             payload["value"] = model.search_count(domain)
-        elif self.widget_type == "table":
-            records = model.search(domain, limit=10)
-            payload["rows"] = records.read(["name", "create_date", "priority", "stage_id"])
-        elif self.widget_type == "activity":
-            messages = self.env["mail.message"].search(
-                [("model", "=", self.model_name)] + domain,
-                order="date desc",
-                limit=10,
-            )
-            payload["items"] = messages.read(["author_id", "subject", "date"])
-        else:  # chart
-            group_field = self.group_by or "team_id"
-            grouped = model.read_group(domain, ["id:count"], [group_field], lazy=False)
-            payload["series"] = [
-                {
-                    "label": item.get(group_field) and item[group_field][1] or "Undefined",
-                    "value": item.get("id_count", 0),
-                }
-                for item in grouped
-            ]
+        else:
+            payload["series"] = self._grouped_series(model, domain, metric["group_field"])
         return payload
 
 

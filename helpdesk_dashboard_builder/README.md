@@ -15,7 +15,7 @@ Each metric can be shown as **Counter** or **Chart**:
 ## Usage
 
 1. Go to **Helpdesk Dashboard > Layouts** and create a layout.
-2. Add widgets and choose `Widget Type` (Counter/Chart) and `Metric`.
+2. Add widgets and choose `Widget Type` (Counter/Chart).
 3. Optionally set period, size, and extra domain.
 4. Open **Helpdesk Dashboard > Dashboard** and drag widgets to reorder.
 

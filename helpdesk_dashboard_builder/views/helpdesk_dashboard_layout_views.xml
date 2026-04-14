@@ -34,7 +34,6 @@
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
                                     <field name="widget_type"/>
-                                    <field name="metric_key"/>
                                     <field name="period"/>
                                     <field name="width"/>
                                     <field name="height"/>

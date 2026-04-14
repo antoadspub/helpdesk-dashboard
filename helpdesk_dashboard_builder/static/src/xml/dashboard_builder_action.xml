@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+    <t t-name="helpdesk_dashboard_builder.DashboardBuilderAction">
+        <div class="o_hd_builder">
+            <t t-if="state.loading">
+                <div class="o_hd_loading">Loading dashboard...</div>
+            </t>
+            <t t-elif="!state.layout">
+                <div class="o_hd_loading">No dashboard layout configured. Create one from Helpdesk Dashboard &gt; Layouts.</div>
+            </t>
+            <t t-else="">
+                <div class="o_hd_header">
+                    <h2><t t-esc="state.layout.name"/></h2>
+                </div>
+                <div class="o_hd_grid">
+                    <t t-foreach="state.widgets" t-as="widget" t-key="widget.id">
+                        <article class="o_hd_widget"
+                                 t-att-class="widthClass(widget.width)"
+                                 t-att-style="`height: ${widget.height}px;`"
+                                 draggable="true"
+                                 t-on-dragstart="(ev) => onDragStart(ev, widget)"
+                                 t-on-dragover="onDragOver"
+                                 t-on-drop="(ev) => onDrop(ev, widget)">
+                            <header>
+                                <strong><t t-esc="widget.name"/></strong>
+                                <span class="badge"><t t-esc="widget.type"/></span>
+                            </header>
+
+                            <section t-if="widget.type === 'counter'">
+                                <div class="o_hd_counter" t-esc="widget.value"/>
+                            </section>
+
+                            <section t-elif="widget.type === 'chart'">
+                                <ul>
+                                    <t t-foreach="widget.series || []" t-as="point" t-key="point.label">
+                                        <li>
+                                            <span><t t-esc="point.label"/></span>
+                                            <strong><t t-esc="point.value"/></strong>
+                                        </li>
+                                    </t>
+                                </ul>
+                            </section>
+
+                            <section t-elif="widget.type === 'table'">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr><th>Ticket</th><th>Date</th><th>Priority</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="widget.rows || []" t-as="row" t-key="row.id">
+                                            <tr>
+                                                <td><t t-esc="row.name"/></td>
+                                                <td><t t-esc="row.create_date"/></td>
+                                                <td><t t-esc="row.priority"/></td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </section>
+
+                            <section t-else="">
+                                <ul>
+                                    <t t-foreach="widget.items || []" t-as="item" t-key="item.id">
+                                        <li>
+                                            <t t-esc="item.subject || 'Update'"/> - <t t-esc="item.date"/>
+                                        </li>
+                                    </t>
+                                </ul>
+                            </section>
+                        </article>
+                    </t>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates>

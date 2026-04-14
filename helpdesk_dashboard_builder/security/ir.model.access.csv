@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_helpdesk_dashboard_layout_manager,helpdesk.dashboard.layout manager,model_helpdesk_dashboard_layout,helpdesk_mgmt.group_helpdesk_manager,1,1,1,1
+access_helpdesk_dashboard_widget_manager,helpdesk.dashboard.widget manager,model_helpdesk_dashboard_widget,helpdesk_mgmt.group_helpdesk_manager,1,1,1,1

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="view_helpdesk_dashboard_layout_tree" model="ir.ui.view">
+        <field name="name">helpdesk.dashboard.layout.tree</field>
+        <field name="model">helpdesk.dashboard.layout</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="user_id"/>
+                <field name="is_global"/>
+                <field name="company_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_helpdesk_dashboard_layout_form" model="ir.ui.view">
+        <field name="name">helpdesk.dashboard.layout.form</field>
+        <field name="model">helpdesk.dashboard.layout</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="is_global"/>
+                        <field name="user_id" invisible="is_global"/>
+                        <field name="company_id"/>
+                        <field name="active"/>
+                    </group>
+                    <notebook>
+                        <page string="Widgets">
+                            <field name="widget_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="widget_type"/>
+                                    <field name="model_name"/>
+                                    <field name="group_by"/>
+                                    <field name="period"/>
+                                    <field name="width"/>
+                                    <field name="height"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_helpdesk_dashboard_layout" model="ir.actions.act_window">
+        <field name="name">Dashboard Layouts</field>
+        <field name="res_model">helpdesk.dashboard.layout</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_helpdesk_dashboard_builder_client" model="ir.actions.client">
+        <field name="name">Helpdesk Dashboard</field>
+        <field name="tag">helpdesk_dashboard_builder.action</field>
+    </record>
+</odoo>

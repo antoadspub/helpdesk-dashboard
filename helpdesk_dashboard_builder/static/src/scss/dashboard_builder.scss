@@ -1,0 +1,43 @@
+.o_hd_builder {
+  padding: 16px;
+
+  .o_hd_loading {
+    padding: 24px;
+    background: #f8f9fa;
+    border: 1px dashed #ced4da;
+    border-radius: 8px;
+  }
+
+  .o_hd_header {
+    margin-bottom: 12px;
+  }
+
+  .o_hd_grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .o_hd_widget {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #fff;
+    padding: 10px;
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .o_hd_counter {
+      font-size: 2.1rem;
+      font-weight: 700;
+      text-align: center;
+    }
+  }
+
+  .o_hd_col_full { grid-column: span 12; }
+  .o_hd_col_half { grid-column: span 6; }
+  .o_hd_col_third { grid-column: span 4; }
+}

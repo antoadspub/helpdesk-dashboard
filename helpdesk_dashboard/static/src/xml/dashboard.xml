@@ -13,7 +13,7 @@
                     </select>
                     <select t-on-change="onTeamChange">
                         <option value="all">All teams</option>
-                        <t t-foreach="state.teams" t-as="team" t-key="team.id">
+                        <t t-foreach="state.teams" t-as="team" t-key="team.id || team.name || team_index">
                             <option t-att-value="team.id">
                                 <t t-esc="team.name"/>
                             </option>
@@ -65,14 +65,14 @@
                         <div class="hd-legend">
                             <span><span class="hd-legend-dot" style="background:#378ADD;"></span>Open tickets</span>
                         </div>
-                        <div class="hd-chart-wrap"><canvas t-ref="techOngoing"/></div>
+                        <div class="hd-chart-wrap"><canvas t-ref="techOngoing"></canvas></div>
                     </div>
                     <div class="hd-card">
                         <div class="hd-card-title">Period — by assigned tech</div>
                         <div class="hd-legend">
                             <span><span class="hd-legend-dot" style="background:#EF9F27;"></span>Tickets in period</span>
                         </div>
-                        <div class="hd-chart-wrap"><canvas t-ref="techPeriod"/></div>
+                        <div class="hd-chart-wrap"><canvas t-ref="techPeriod"></canvas></div>
                     </div>
                 </div>
 
@@ -82,39 +82,39 @@
                         <div class="hd-legend">
                             <span><span class="hd-legend-dot" style="background:#378ADD;"></span>Tickets opened</span>
                         </div>
-                        <div class="hd-chart-wrap"><canvas t-ref="hour"/></div>
+                        <div class="hd-chart-wrap"><canvas t-ref="hour"></canvas></div>
                     </div>
                     <div class="hd-card">
                         <div class="hd-card-title">By date opened</div>
                         <div class="hd-legend">
                             <span><span class="hd-legend-dot" style="background:#639922;"></span>Tickets</span>
                         </div>
-                        <div class="hd-chart-wrap"><canvas t-ref="date"/></div>
+                        <div class="hd-chart-wrap"><canvas t-ref="date"></canvas></div>
                     </div>
                 </div>
 
                 <div class="hd-grid-3">
                     <div class="hd-card">
                         <div class="hd-card-title">By status</div>
-                        <div class="hd-chart-wrap"><canvas t-ref="status"/></div>
+                        <div class="hd-chart-wrap"><canvas t-ref="status"></canvas></div>
                     </div>
                     <div class="hd-card">
                         <div class="hd-card-title">By team / location</div>
-                        <div class="hd-chart-wrap"><canvas t-ref="location"/></div>
+                        <div class="hd-chart-wrap"><canvas t-ref="location"></canvas></div>
                     </div>
                     <div class="hd-card">
                         <div class="hd-card-title">By request type</div>
                         <div class="hd-legend">
                             <span><span class="hd-legend-dot" style="background:#534AB7;"></span>Type</span>
                         </div>
-                        <div class="hd-chart-wrap"><canvas t-ref="type"/></div>
+                        <div class="hd-chart-wrap"><canvas t-ref="type"></canvas></div>
                     </div>
                 </div>
 
                 <div class="hd-card">
                     <div class="hd-card-title">Recent ticket activity</div>
                     <ul class="hd-activity">
-                        <t t-foreach="state.activity" t-as="ticket" t-key="ticket.id">
+                        <t t-foreach="state.activity" t-as="ticket" t-key="ticket.id || ticket.number || ticket_index">
                             <li class="hd-activity-item">
                                 <span class="hd-ticket-num">#<t t-esc="ticket.number"/></span>
                                 <div class="hd-ticket-info">

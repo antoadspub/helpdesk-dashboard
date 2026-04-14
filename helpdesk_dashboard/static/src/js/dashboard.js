@@ -177,13 +177,17 @@ class HelpdeskDashboard extends Component {
         const type = data.type || fallback;
         // Small delay to ensure DOM is ready after state update
         setTimeout(() => {
-            this.hbar('techOngoing', techOngoing.labels, techOngoing.data, COLORS.blue);
-            this.hbar('techPeriod',  techPeriod.labels,  techPeriod.data,  COLORS.amber);
-            this.vbar('hour', hour.labels, hour.data, COLORS.blue);
-            this.vbar('date', date.labels, date.data, COLORS.green);
-            this.donut('status', status.labels, status.data, PIE_COLORS);
-            this.donut('location', location.labels, location.data, PIE_COLORS);
-            this.hbar('type', type.labels, type.data, COLORS.purple);
+            try {
+                this.hbar('techOngoing', techOngoing.labels, techOngoing.data, COLORS.blue);
+                this.hbar('techPeriod',  techPeriod.labels,  techPeriod.data,  COLORS.amber);
+                this.vbar('hour', hour.labels, hour.data, COLORS.blue);
+                this.vbar('date', date.labels, date.data, COLORS.green);
+                this.donut('status', status.labels, status.data, PIE_COLORS);
+                this.donut('location', location.labels, location.data, PIE_COLORS);
+                this.hbar('type', type.labels, type.data, COLORS.purple);
+            } catch (error) {
+                console.error("Helpdesk dashboard chart render failed", error);
+            }
         }, 80);
     }
 

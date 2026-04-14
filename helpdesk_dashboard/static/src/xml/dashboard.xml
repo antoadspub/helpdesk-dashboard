@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <t t-name="helpdesk_dashboard.Dashboard">
+    <t t-name="helpdesk_dashboard.Dashboard" owl="1">
         <div class="helpdesk-dashboard">
             <div class="hd-topbar">
                 <h1>Helpdesk Manager Dashboard</h1>

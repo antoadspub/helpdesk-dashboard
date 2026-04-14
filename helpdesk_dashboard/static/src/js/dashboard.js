@@ -75,10 +75,16 @@ class HelpdeskDashboard extends Component {
                 team_id: this.state.teamId,
             });
             if (data.error) return;
-            this.state.metrics = data.metrics;
-            this.state.activity = data.activity;
-            if (data.teams && data.teams.length) this.state.teams = data.teams;
-            this.renderCharts(data);
+            const metrics = data.metrics || {};
+            this.state.metrics = {
+                total: Number(metrics.total) || 0,
+                assigned: Number(metrics.assigned) || 0,
+                resolved: Number(metrics.resolved) || 0,
+                unassigned: Number(metrics.unassigned) || 0,
+            };
+            this.state.activity = Array.isArray(data.activity) ? data.activity : [];
+            this.state.teams = Array.isArray(data.teams) ? data.teams : [];
+            this.renderCharts(data || {});
         } finally {
             this.state.loading = false;
         }
@@ -166,7 +172,7 @@ class HelpdeskDashboard extends Component {
         });
     }
 
-    renderCharts(data) {
+    renderCharts(data = {}) {
         const fallback = { labels: [], data: [] };
         const techOngoing = data.tech_ongoing || fallback;
         const techPeriod = data.tech_period || fallback;

@@ -2,7 +2,6 @@
 <odoo>
     <menuitem id="menu_helpdesk_dashboard_root"
               name="Helpdesk Dashboard"
-              parent="helpdesk_mgmt.menu_helpdesk_root"
               sequence="35"
               groups="helpdesk_mgmt.group_helpdesk_manager"/>
 

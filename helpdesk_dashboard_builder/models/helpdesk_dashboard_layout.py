@@ -92,7 +92,17 @@ class HelpdeskDashboardWidget(models.Model):
         if "helpdesk.ticket.stage" not in self.env:
             return []
         stage_model = self.env["helpdesk.ticket.stage"]
-        stages = stage_model.search([("is_close", "=", is_closed)])
+
+        stage_flag_field = None
+        if "is_close" in stage_model._fields:
+            stage_flag_field = "is_close"
+        elif "fold" in stage_model._fields:
+            stage_flag_field = "fold"
+
+        if not stage_flag_field:
+            return []
+
+        stages = stage_model.search([(stage_flag_field, "=", is_closed)])
         if not stages:
             return []
         return [("stage_id", "in", stages.ids)]

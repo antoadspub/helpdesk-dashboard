@@ -135,6 +135,15 @@ class HelpdeskDashboardWidget(models.Model):
             return []
         return [("stage_id", "in", stages.ids)]
 
+    def _closed_since_domain(self, since_dt):
+        ticket_model = self.env["helpdesk.ticket"]
+        for field_name in ("close_date", "closed_date", "date_closed"):
+            if field_name in ticket_model._fields:
+                return [(field_name, ">=", since_dt)]
+        if "write_date" in ticket_model._fields:
+            return [("write_date", ">=", since_dt)]
+        return [("create_date", ">=", since_dt)]
+
     def _metric_domain_and_group_field(self):
         self.ensure_one()
         closed_since = fields.Datetime.subtract(fields.Datetime.now(), months=2)
@@ -146,9 +155,7 @@ class HelpdeskDashboardWidget(models.Model):
             "assigned_engineer_closed_2m": {
                 "domain": [
                     ("user_id", "!=", False),
-                ] + self._stage_domain(True) + [
-                    ("close_date", ">=", closed_since),
-                ],
+                ] + self._stage_domain(True) + self._closed_since_domain(closed_since),
                 "group_field": "user_id",
             },
             "company_wise": {

@@ -12,9 +12,15 @@ Each metric can be shown as **Counter** or **Chart**:
 - Ticket category wise active tickets
 - Stage wise active tickets
 
-## How to configure these requirements
+## Layout behavior (manager-owned, optional sharing)
 
-1. Go to **Helpdesk Dashboard > Layouts** and create/open a layout.
+- Every manager owns their own layout (`Owner`).
+- Layouts are not company-scoped and not global by default.
+- A manager can enable **Share with other managers** and pick specific users in **Shared with**.
+
+## How to configure
+
+1. Go to **Helpdesk Dashboard > Layouts** and create/open your layout.
 2. Click **Generate Required Widgets** (creates the five required widgets automatically).
 3. In the Widgets list, set **Widget Type** as `Counter` or `Chart` per metric.
 4. In **Metric**, choose one of the required metrics listed above.

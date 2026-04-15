@@ -8,19 +8,11 @@ class HelpdeskDashboardLayout(models.Model):
     _order = "name, id"
 
     name = fields.Char(required=True)
-    user_id = fields.Many2one("res.users", string="User")
-    is_global = fields.Boolean(default=False)
-    company_id = fields.Many2one("res.company", default=lambda self: self.env.company)
+    owner_id = fields.Many2one("res.users", string="Owner", default=lambda self: self.env.user, required=True)
+    is_shared = fields.Boolean(string="Share with other managers", default=False)
+    shared_user_ids = fields.Many2many("res.users", string="Shared with")
     active = fields.Boolean(default=True)
     widget_ids = fields.One2many("helpdesk.dashboard.widget", "layout_id", string="Widgets")
-
-    _sql_constraints = [
-        (
-            "layout_scope_check",
-            "CHECK(NOT(is_global) OR user_id IS NULL)",
-            "Global layouts cannot be tied to a specific user.",
-        )
-    ]
 
 
     def action_generate_default_widgets(self):
@@ -52,15 +44,15 @@ class HelpdeskDashboardLayout(models.Model):
 
     @api.model
     def get_current_layout(self):
-        user_layout = self.search([
-            ("user_id", "=", self.env.user.id),
+        own_layout = self.search([
+            ("owner_id", "=", self.env.user.id),
             ("active", "=", True),
         ], limit=1)
-        if user_layout:
-            return user_layout
+        if own_layout:
+            return own_layout
         return self.search([
-            ("is_global", "=", True),
-            ("company_id", "=", self.env.company.id),
+            ("is_shared", "=", True),
+            ("shared_user_ids", "in", self.env.user.id),
             ("active", "=", True),
         ], limit=1)
 
@@ -228,14 +220,19 @@ class HelpdeskDashboardController(models.AbstractModel):
     def get_dashboard_data(self):
         layout = self.env["helpdesk.dashboard.layout"].get_current_layout()
         if not layout:
-            return {"layout": False, "widgets": []}
+            layout = self.env["helpdesk.dashboard.layout"].create({
+                "name": f"{self.env.user.name} Dashboard",
+                "owner_id": self.env.user.id,
+                "is_shared": False,
+            })
+            layout.action_generate_default_widgets()
         widgets = layout.widget_ids.sorted("sequence")
         return {
             "layout": {
                 "id": layout.id,
                 "name": layout.name,
-                "is_global": layout.is_global,
-                "user_id": layout.user_id.id,
+                "owner_id": layout.owner_id.id,
+                "is_shared": layout.is_shared,
             },
             "widgets": [w.get_widget_payload() for w in widgets],
         }

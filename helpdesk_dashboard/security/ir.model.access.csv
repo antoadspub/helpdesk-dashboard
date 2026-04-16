@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hd_dashboard_layout_manager,hd.dashboard.layout manager,model_hd_dashboard_layout,helpdesk_mgmt.group_helpdesk_manager,1,1,1,1
+access_hd_dashboard_layout_user,hd.dashboard.layout user,model_hd_dashboard_layout,helpdesk_mgmt.group_helpdesk_user,1,1,1,1
+access_hd_dashboard_widget_manager,hd.dashboard.widget manager,model_hd_dashboard_widget,helpdesk_mgmt.group_helpdesk_manager,1,1,1,1
+access_hd_dashboard_widget_user,hd.dashboard.widget user,model_hd_dashboard_widget,helpdesk_mgmt.group_helpdesk_user,1,1,1,1

@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+<t t-name="hd_dashboard.Dashboard">
+<div class="hd2-root">
+
+  <!-- Top bar -->
+  <div class="hd2-topbar">
+    <h1>Helpdesk Dashboard</h1>
+    <div class="hd2-topbar-actions">
+      <t t-if="state.editMode">
+        <button class="hd2-btn hd2-btn-primary" t-on-click="openAddWidget">+ Add Widget</button>
+        <button class="hd2-btn" t-on-click="saveMine">Save My Layout</button>
+        <t t-if="state.isManager">
+          <button class="hd2-btn" t-on-click="saveDefault">Save as Default (All)</button>
+        </t>
+        <button class="hd2-btn hd2-btn-danger" t-on-click="resetLayout">Reset to Default</button>
+        <button class="hd2-btn" t-on-click="toggleEdit">Done</button>
+      </t>
+      <t t-if="!state.editMode">
+        <button class="hd2-btn" t-on-click="refreshAll">Refresh</button>
+        <button class="hd2-btn" t-on-click="toggleEdit">Configure Dashboard</button>
+      </t>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <t t-if="state.loading">
+    <div class="hd2-loading">Loading dashboard...</div>
+  </t>
+
+  <!-- Widget grid -->
+  <t t-if="!state.loading">
+    <div t-attf-class="hd2-grid {{ state.editMode ? 'hd2-edit-mode' : '' }}">
+      <t t-foreach="state.widgets" t-as="widget" t-key="widget.id">
+        <div t-attf-class="hd2-widget-{{ widget.size }}"
+             t-att-data-widget-id="widget.id"
+             t-on-dragstart="(e) => this.onDragStart(e, widget)"
+             t-on-dragover="onDragOver"
+             t-on-drop="(e) => this.onDrop(e, widget)"
+             t-on-dragleave="onDragLeave"
+             t-att-draggable="state.editMode">
+          <div t-attf-class="hd2-card hd2-color-{{ widget.color }}">
+            <div class="hd2-card-title">
+              <span t-esc="widget.title"/>
+              <div class="hd2-card-actions">
+                <button class="hd2-icon-btn" title="Edit" t-on-click="() => this.openEditWidget(widget)">✎</button>
+                <button class="hd2-icon-btn" title="Remove" t-on-click="() => this.removeWidget(widget)">✕</button>
+              </div>
+            </div>
+            <!-- Counter -->
+            <t t-if="widget.widget_type === 'counter'">
+              <t t-if="widget._loading"><div class="hd2-loading">...</div></t>
+              <t t-if="!widget._loading">
+                <div class="hd2-counter">
+                  <div class="hd2-counter-value" t-esc="widget._data ? widget._data.value : 0"/>
+                  <div class="hd2-counter-sub" t-esc="widget._data ? widget._data.sub : ''"/>
+                </div>
+              </t>
+            </t>
+            <!-- Bar / Donut / Line chart -->
+            <t t-if="widget.widget_type === 'bar' or widget.widget_type === 'donut' or widget.widget_type === 'line'">
+              <t t-if="widget._loading"><div class="hd2-loading">...</div></t>
+              <t t-if="!widget._loading">
+                <div class="hd2-chart-wrap">
+                  <canvas t-att-id="'chart-' + widget.id" style="width:100%"/>
+                </div>
+              </t>
+            </t>
+            <!-- Leaderboard -->
+            <t t-if="widget.widget_type === 'leaderboard'">
+              <t t-if="widget._loading"><div class="hd2-loading">...</div></t>
+              <t t-if="!widget._loading and widget._data">
+                <ul class="hd2-lb">
+                  <t t-foreach="widget._data.rows" t-as="row" t-key="row_index">
+                    <li class="hd2-lb-row">
+                      <span class="hd2-lb-rank" t-esc="row_index + 1"/>
+                      <span class="hd2-lb-name" t-esc="row.name"/>
+                      <span class="hd2-lb-val" t-esc="row.value"/>
+                      <span class="hd2-lb-label" t-esc="row.label"/>
+                    </li>
+                  </t>
+                </ul>
+              </t>
+            </t>
+            <!-- Activity feed -->
+            <t t-if="widget.widget_type === 'activity'">
+              <t t-if="widget._loading"><div class="hd2-loading">...</div></t>
+              <t t-if="!widget._loading and widget._data">
+                <ul class="hd2-feed">
+                  <t t-foreach="widget._data.rows" t-as="row" t-key="row.id">
+                    <li class="hd2-feed-row">
+                      <span class="hd2-feed-num">#<t t-esc="row.number"/></span>
+                      <div class="hd2-feed-info">
+                        <div class="hd2-feed-title" t-esc="row.name"/>
+                        <div class="hd2-feed-meta"><t t-esc="row.user"/> · <t t-esc="row.team"/> · <t t-esc="row.date"/></div>
+                      </div>
+                      <span t-attf-class="hd2-badge {{ stageBadge(row) }}" t-esc="row.stage"/>
+                    </li>
+                  </t>
+                </ul>
+              </t>
+            </t>
+            <!-- Table -->
+            <t t-if="widget.widget_type === 'table'">
+              <t t-if="widget._loading"><div class="hd2-loading">...</div></t>
+              <t t-if="!widget._loading and widget._data">
+                <div style="overflow-x:auto">
+                  <table class="hd2-table">
+                    <thead><tr>
+                      <th>#</th><th>Title</th><th>Stage</th><th>Assignee</th><th>Team</th><th>Date</th>
+                    </tr></thead>
+                    <tbody>
+                      <t t-foreach="widget._data.rows" t-as="row" t-key="row.id">
+                        <tr>
+                          <td t-esc="row.number"/>
+                          <td t-esc="row.name"/>
+                          <td t-esc="row.stage"/>
+                          <td t-esc="row.user"/>
+                          <td t-esc="row.team"/>
+                          <td t-esc="row.date"/>
+                        </tr>
+                      </t>
+                    </tbody>
+                  </table>
+                </div>
+              </t>
+            </t>
+          </div>
+        </div>
+      </t>
+    </div>
+  </t>
+
+  <!-- Config sidebar overlay -->
+  <t t-if="state.sidebarOpen">
+    <div class="hd2-overlay" t-on-click="closeSidebar"/>
+    <div class="hd2-sidebar">
+      <div class="hd2-sidebar-header">
+        <h3 t-esc="state.editingWidget ? 'Edit Widget' : 'Add Widget'"/>
+        <button class="hd2-icon-btn" t-on-click="closeSidebar">✕</button>
+      </div>
+      <div class="hd2-sidebar-body">
+
+        <!-- Widget type palette (add mode only) -->
+        <t t-if="!state.editingWidget">
+          <div class="hd2-divider" style="border-top:none;margin-top:0">Choose a widget type</div>
+          <div class="hd2-palette">
+            <t t-foreach="widgetTypes" t-as="wt" t-key="wt.type">
+              <div class="hd2-palette-item" t-on-click="() => this.selectWidgetType(wt.type)">
+                <div class="hd2-palette-name" t-esc="wt.name"/>
+                <div class="hd2-palette-desc" t-esc="wt.desc"/>
+              </div>
+            </t>
+          </div>
+        </t>
+
+        <!-- Config form -->
+        <t t-if="state.editingWidget or state.newWidgetType">
+          <div class="hd2-form-group">
+            <label class="hd2-form-label">Title</label>
+            <input class="hd2-form-input" t-model="state.form.title"/>
+          </div>
+          <div class="hd2-form-group">
+            <label class="hd2-form-label">Size</label>
+            <select class="hd2-form-input" t-model="state.form.size">
+              <option value="small">Small (1/4 width)</option>
+              <option value="third">Medium (1/3 width)</option>
+              <option value="half">Half width</option>
+              <option value="full">Full width</option>
+            </select>
+          </div>
+          <div class="hd2-form-group">
+            <label class="hd2-form-label">Color</label>
+            <select class="hd2-form-input" t-model="state.form.color">
+              <option value="blue">Blue</option>
+              <option value="amber">Amber</option>
+              <option value="green">Green</option>
+              <option value="purple">Purple</option>
+              <option value="teal">Teal</option>
+              <option value="coral">Coral</option>
+            </select>
+          </div>
+          <div class="hd2-form-group">
+            <label class="hd2-form-label">Period</label>
+            <select class="hd2-form-input" t-model="state.form.period">
+              <option value="1">Last 1 month</option>
+              <option value="3">Last 3 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="12">Last 12 months</option>
+              <option value="0">All time</option>
+            </select>
+          </div>
+          <div class="hd2-form-group">
+            <label class="hd2-form-label">Filter by Team</label>
+            <select class="hd2-form-input" t-model="state.form.team_filter">
+              <option value="">All teams</option>
+              <t t-foreach="state.teams" t-as="team" t-key="team.id">
+                <option t-att-value="team.id" t-esc="team.name"/>
+              </t>
+            </select>
+          </div>
+
+          <!-- Counter-specific -->
+          <t t-if="formType() === 'counter'">
+            <div class="hd2-form-group">
+              <label class="hd2-form-label">Metric</label>
+              <select class="hd2-form-input" t-model="state.form.metric">
+                <option value="open">Open tickets</option>
+                <option value="assigned">Assigned tickets</option>
+                <option value="unassigned">Unassigned tickets</option>
+                <option value="resolved">Resolved (period)</option>
+                <option value="total">Total (period)</option>
+                <option value="avg_time">Avg resolution time</option>
+              </select>
+            </div>
+          </t>
+
+          <!-- Chart-specific -->
+          <t t-if="formType() === 'bar' or formType() === 'donut' or formType() === 'line'">
+            <div class="hd2-form-group">
+              <label class="hd2-form-label">Group by</label>
+              <select class="hd2-form-input" t-model="state.form.group_by">
+                <option value="user">Assigned tech</option>
+                <option value="team">Team</option>
+                <option value="type">Ticket type</option>
+                <option value="stage">Stage / Status</option>
+                <option value="priority">Priority</option>
+                <option value="category">Category</option>
+                <option value="channel">Channel</option>
+                <option value="date">Date opened</option>
+                <option value="hour">Hour of day</option>
+              </select>
+            </div>
+            <div class="hd2-form-group">
+              <label class="hd2-form-label">
+                <input type="checkbox" t-model="state.form.filter_open" style="margin-right:6px"/>
+                Only open tickets
+              </label>
+            </div>
+          </t>
+
+          <!-- Leaderboard-specific -->
+          <t t-if="formType() === 'leaderboard'">
+            <div class="hd2-form-group">
+              <label class="hd2-form-label">Ranked by</label>
+              <select class="hd2-form-input" t-model="state.form.metric">
+                <option value="closed">Tickets closed</option>
+                <option value="open">Open tickets (current)</option>
+                <option value="avg_time">Avg resolution time</option>
+              </select>
+            </div>
+          </t>
+
+          <!-- Rows limit -->
+          <t t-if="formType() !== 'counter'">
+            <div class="hd2-form-group">
+              <label class="hd2-form-label">Max rows / items</label>
+              <input class="hd2-form-input" type="number" min="3" max="50" t-model="state.form.limit"/>
+            </div>
+          </t>
+        </t>
+      </div>
+      <div class="hd2-sidebar-footer">
+        <t t-if="state.editingWidget or state.newWidgetType">
+          <button class="hd2-btn hd2-btn-primary" t-on-click="saveWidget">Save Widget</button>
+        </t>
+        <button class="hd2-btn" t-on-click="closeSidebar">Cancel</button>
+      </div>
+    </div>
+  </t>
+
+</div>
+</t>
+
+</templates>

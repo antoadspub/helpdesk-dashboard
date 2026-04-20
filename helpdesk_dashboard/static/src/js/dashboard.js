@@ -1,369 +1,454 @@
 /** @odoo-module **/
 import { registry } from "@web/core/registry";
 import { Component, onMounted, useState } from "@odoo/owl";
+import { loadJS } from "@web/core/assets";
 
-const CHART_COLORS = {
-    blue:   '#378ADD', amber:  '#EF9F27', green:  '#639922',
-    purple: '#534AB7', teal:   '#1D9E75', coral:  '#D85A30',
-};
-const PIE_PALETTE = ['#378ADD','#EF9F27','#1D9E75','#FAC775','#534AB7','#D85A30','#639922','#9FE1CB'];
-const GRID   = 'rgba(120,120,120,0.1)';
-const TLABEL = '#888780';
+const PIE  = ['#378ADD','#EF9F27','#1D9E75','#D85A30','#534AB7','#E24B4A','#639922','#FAC775','#9FE1CB','#F4C0D1'];
+const BARS = ['#378ADD','#EF9F27','#1D9E75','#D85A30','#534AB7','#E24B4A','#639922','#BA7517','#0F6E56','#993C1D'];
+const SOLO = {blue:'#378ADD',amber:'#EF9F27',green:'#639922',purple:'#534AB7',teal:'#1D9E75',coral:'#D85A30'};
+const GRID = 'rgba(120,120,120,0.1)', TXT = '#888780';
 
-const WIDGET_TYPES = [
-    { type:'counter',     name:'Counter Card',    desc:'Single metric number' },
-    { type:'bar',         name:'Bar Chart',        desc:'Group tickets by field' },
-    { type:'donut',       name:'Donut Chart',      desc:'Breakdown by category' },
-    { type:'line',        name:'Trend Chart',      desc:'Tickets over time' },
-    { type:'leaderboard', name:'Leaderboard',      desc:'Top engineers ranking' },
-    { type:'activity',    name:'Activity Feed',    desc:'Recent ticket events' },
-    { type:'table',       name:'Ticket Table',     desc:'List of tickets' },
+const W_TYPES = [
+    {type:'counter',name:'Counter Card',desc:'Single metric number'},
+    {type:'bar',name:'Bar Chart',desc:'Group tickets by field'},
+    {type:'donut',name:'Donut Chart',desc:'Breakdown by category'},
+    {type:'line',name:'Trend Chart',desc:'Tickets over time'},
+    {type:'leaderboard',name:'Leaderboard',desc:'Top engineers ranking'},
+    {type:'activity',name:'Activity Feed',desc:'Recent ticket events'},
+    {type:'table',name:'Ticket Table',desc:'List of tickets'},
+];
+const F_FIELDS = [
+    {key:'stage',label:'Stage'},{key:'user',label:'Assigned to'},
+    {key:'team',label:'Team'},{key:'priority',label:'Priority'},
+    {key:'type',label:'Ticket Type'},{key:'category',label:'Category'},
+    {key:'closed',label:'Is Closed'},
 ];
 
-function stageBadge(row) {
-    const s = (row.stage || '').toLowerCase();
-    if (row.closed)                                   return 'hd2-badge-closed';
-    if (s.includes('assign'))                         return 'hd2-badge-assigned';
-    if (s.includes('resolv') || s.includes('done'))   return 'hd2-badge-resolved';
+function sbName(n,c){
+    if(c) return 'hd2-badge-closed';
+    const s=(n||'').toLowerCase();
+    if(s.includes('progress')||s.includes('assign')) return 'hd2-badge-assigned';
+    if(s.includes('resolv')||s.includes('done')) return 'hd2-badge-resolved';
     return 'hd2-badge-open';
 }
+function sb(r){ if(r.closed)return'hd2-badge-closed'; if(r.unattended)return'hd2-badge-open'; if(r.user)return'hd2-badge-assigned'; return'hd2-badge-open'; }
+function pl(p){return{'0':'Low','1':'Medium','2':'High','3':'Very High'}[p]||p;}
+function ef(t){return{widget_type:t||'counter',title:'',size:'half',color:'blue',period:'1',team_filter:'',group_by:'user',metric:'open',filter_open:false,limit:10,adv_filters:[]};}
+function efilter(){return{id:Date.now(),logic:'AND',field:'stage',op:'=',value:''};}
 
-function emptyForm(type) {
-    return {
-        widget_type: type || 'counter',
-        title: '',
-        size: 'half',
-        color: 'blue',
-        period: '1',
-        team_filter: '',
-        group_by: 'user',
-        metric: 'open',
-        filter_open: false,
-        limit: 10,
-    };
+async function rpc(route, params){
+    const r = await fetch(route, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({jsonrpc:'2.0',method:'call',id:Math.random()*1e9|0,params:params||{}}),
+    });
+    const j = await r.json();
+    if(j.error) throw new Error(j.error.data?.message||j.error.message);
+    return j.result;
 }
 
-// Plain JSON-RPC helper — works in Odoo 18 CE without useService('rpc')
-async function jsonRpc(route, params) {
-    const response = await fetch(route, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'call',
-            id: Math.floor(Math.random() * 1e9),
-            params: params || {},
-        }),
-    });
-    const json = await response.json();
-    if (json.error) throw new Error(json.error.data?.message || json.error.message);
-    return json.result;
+// Chart instances stored completely outside OWL reactive state
+const CHARTS = {};
+
+function destroyChart(id){
+    if(CHARTS[id]){
+        // Remove event listener before destroying
+        if(CHARTS[id]._clickHandler && CHARTS[id]._canvas){
+            CHARTS[id]._canvas.removeEventListener('click', CHARTS[id]._clickHandler);
+        }
+        CHARTS[id].destroy();
+        delete CHARTS[id];
+    }
+}
+
+function buildChart(canvasId, type, groupBy, colorKey, limit, labels, data, onClickFn){
+    const canvas = document.getElementById(canvasId);
+    if(!canvas){ console.warn('Canvas not found:', canvasId); return; }
+
+    destroyChart(canvasId);
+
+    // Ensure canvas has explicit dimensions — fixes small widget blank issue
+    const parentEl = canvas.parentElement;
+    const parentWidth = parentEl ? parentEl.offsetWidth : 200;
+
+    const isTime  = groupBy==='date' || groupBy==='hour';
+    const solo    = SOLO[colorKey] || SOLO.blue;
+    const lim     = parseInt(limit)||10;
+
+    // Plain arrays — no proxy involvement
+    const L = (type==='bar' && !isTime) ? labels.slice(0,lim) : [...labels];
+    const D = (type==='bar' && !isTime) ? data.slice(0,lim)   : [...data];
+
+    const bgDonut = PIE.slice(0, L.length);
+    const bgBar   = isTime ? solo : L.map((_,i)=>BARS[i%BARS.length]);
+
+    // Chart options with legend and tooltip color box both off
+    const basePlugins = {
+        legend: { display: false },
+        tooltip: {
+            displayColors: false,
+            callbacks: {
+                title: (items) => items[0]?.label || '',
+                label: (ctx)  => `${ctx.formattedValue||ctx.parsed} tickets`,
+            },
+        },
+    };
+
+    let cfg;
+
+    if(type==='donut'){
+        const h = Math.max(parentWidth * 0.8, 180);
+        parentEl.style.height = h + 'px';
+        cfg = {
+            type: 'doughnut',
+            data: {
+                labels: L,
+                datasets:[{ data:D, backgroundColor:bgDonut, borderWidth:2, borderColor:'#fff' }],
+            },
+            options:{
+                responsive:true, maintainAspectRatio:false, cutout:'55%',
+                plugins:{
+                    // Donut gets its own legend showing each segment
+                    legend:{
+                        display: L.length > 0,
+                        position:'bottom',
+                        labels:{
+                            font:{size:10}, boxWidth:10, padding:8,
+                            generateLabels:(ch)=>{
+                                const bg = ch.data.datasets[0].backgroundColor;
+                                return ch.data.labels.map((text,i)=>({
+                                    text, fillStyle: Array.isArray(bg)?bg[i]:bg,
+                                    strokeStyle:'#fff', lineWidth:1, hidden:false,
+                                    datasetIndex:0, index:i,
+                                }));
+                            },
+                        },
+                    },
+                    tooltip:{ displayColors:false, callbacks:{
+                        title:(items)=>items[0]?.label||'',
+                        label:(ctx)=>`${ctx.parsed} tickets`,
+                    }},
+                },
+            },
+        };
+    } else if(type==='line'){
+        parentEl.style.height = Math.max(parentWidth*0.6, 150)+'px';
+        cfg = {
+            type:'line',
+            data:{ labels:L, datasets:[{data:D,borderColor:solo,backgroundColor:solo+'33',tension:.3,fill:true,pointRadius:3}] },
+            options:{
+                responsive:true, maintainAspectRatio:false,
+                plugins: basePlugins,
+                scales:{
+                    x:{grid:{display:false},ticks:{color:TXT,font:{size:10},maxRotation:45}},
+                    y:{grid:{color:GRID},ticks:{color:TXT,font:{size:11}}},
+                },
+            },
+        };
+    } else {
+        // bar
+        const isHoriz = !isTime;
+        if(isHoriz){
+            parentEl.style.height = Math.max(L.length*36+40, 100)+'px';
+        } else {
+            parentEl.style.height = Math.max(parentWidth*0.6, 150)+'px';
+        }
+        cfg = {
+            type:'bar',
+            data:{ labels:L, datasets:[{data:D, backgroundColor:bgBar, borderRadius:4, barThickness:isHoriz?18:'flex'}] },
+            options:{
+                indexAxis: isHoriz?'y':'x',
+                responsive:true, maintainAspectRatio:false,
+                plugins: basePlugins,
+                scales:{
+                    x:{ grid:isHoriz?{color:GRID}:{display:false}, ticks:{color:TXT,font:{size:10},maxRotation:45,autoSkip:false} },
+                    y:{ grid:isHoriz?{display:false}:{color:GRID}, ticks:{color:TXT,font:{size:11}} },
+                },
+            },
+        };
+    }
+
+    // Create chart — use Chart from Odoo's registry if available, else window.Chart
+    const ChartCls = window.Chart;
+    if(!ChartCls){ console.error('Chart.js not available'); return; }
+
+    const chart = new ChartCls(canvas, cfg);
+    CHARTS[canvasId] = chart;
+
+    // Fix clicks: use addEventListener NOT canvas.onclick
+    // Store reference so we can remove it on destroy
+    const labelsSnap = [...L];
+    const clickHandler = function(e){
+        e.stopPropagation();
+        const pts = chart.getElementsAtEventForMode(e, 'nearest', {intersect: type==='donut'}, true);
+        if(pts.length > 0){
+            const lbl = labelsSnap[pts[0].index];
+            if(lbl !== undefined) onClickFn(lbl);
+        }
+    };
+    CHARTS[canvasId]._clickHandler = clickHandler;
+    CHARTS[canvasId]._canvas = canvas;
+    canvas.style.cursor = 'pointer';
+    canvas.addEventListener('click', clickHandler);
 }
 
 export class HdDashboard extends Component {
     static template = "hd_dashboard.Dashboard";
 
-    setup() {
+    setup(){
         this.state = useState({
-            loading: true,
-            widgets: [],
-            teams: [],
-            editMode: false,
-            sidebarOpen: false,
-            editingWidget: null,
-            newWidgetType: null,
-            isManager: false,
-            form: emptyForm(),
+            loading:true,
+            widgets:[], teams:[], stages:[], users:[], types:[], categories:[],
+            editMode:false,
+            sidebarOpen:false, editingWidget:null, newWidgetType:null,
+            isManager:false,
+            form:ef(),
+            drilldown:null,
         });
-        this.charts      = {};
         this.dragSrcId   = null;
-        this.widgetTypes = WIDGET_TYPES;
-        onMounted(() => this.init());
+        this.widgetTypes  = W_TYPES;
+        this.filterFields = F_FIELDS;
+        onMounted(()=>this.init());
     }
 
-    async init() {
-        await this.loadChartJs();
+    async init(){
+        // Load Chart.js via Odoo's asset loader — uses the version Odoo already bundles
+        try {
+            await loadJS('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js');
+        } catch(e){
+            // If CDN fails, window.Chart may already be available from Odoo
+        }
+        if(!window.Chart){ console.error('Chart.js failed to load'); return; }
+        // Set global defaults ONCE — eliminates undefined legend everywhere
+        window.Chart.defaults.plugins.legend.display = false;
+        window.Chart.defaults.plugins.tooltip.displayColors = false;
         await this.loadLayout();
     }
 
-    loadChartJs() {
-        return new Promise(resolve => {
-            if (window.Chart) { resolve(); return; }
-            const s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js';
-            s.onload = resolve;
-            document.head.appendChild(s);
-        });
-    }
-
-    async loadLayout() {
+    async loadLayout(){
         this.state.loading = true;
-        try {
-            const data = await jsonRpc('/hd/dashboard/layout/get', {});
-            if (!data || data.error) return;
-            this.state.teams     = data.teams || [];
-            this.state.isManager = data.is_manager || false;
-            this.state.widgets   = data.widgets.map(w => ({
-                ...w, _loading: true, _data: null,
-            }));
-            this.fetchAllWidgets();
-        } catch(e) {
-            console.error('Dashboard load error', e);
-        } finally {
-            this.state.loading = false;
-        }
+        try{
+            const d = await rpc('/hd/dashboard/layout/get', {});
+            if(!d || d.error) return;
+            this.state.teams      = d.teams      || [];
+            this.state.stages     = d.stages     || [];
+            this.state.users      = d.users      || [];
+            this.state.types      = d.types      || [];
+            this.state.categories = d.categories || [];
+            this.state.isManager  = d.is_manager || false;
+            this.state.widgets    = d.widgets.map(w=>({...w,_loading:true,_data:null}));
+            await this.fetchAllWidgets();
+        } catch(e){ console.error('loadLayout', e); }
+        finally{ this.state.loading = false; }
     }
 
-    async fetchAllWidgets() {
-        for (const w of this.state.widgets) {
-            this.fetchWidget(w);
-        }
+    async fetchAllWidgets(){
+        for(const w of this.state.widgets) await this.fetchWidget(w);
     }
 
-    async fetchWidget(widget) {
+    async fetchWidget(widget){
         widget._loading = true;
-        try {
-            const data = await jsonRpc('/hd/dashboard/widget/data', { widget });
-            widget._data = data;
-            if (['bar','donut','line'].includes(widget.widget_type)) {
-                setTimeout(() => this.renderChart(widget), 100);
+        // Capture ALL values as plain primitives before any await
+        const id         = String(widget.id);
+        const wtype      = String(widget.widget_type);
+        const groupBy    = String(widget.group_by   || '');
+        const colorKey   = String(widget.color      || 'blue');
+        const metric     = String(widget.metric     || 'open');
+        const period     = String(widget.period     || '1');
+        const teamFilter = widget.team_filter ? String(widget.team_filter) : null;
+        const filterOpen = Boolean(widget.filter_open);
+        const limit      = parseInt(widget.limit)   || 10;
+        const advFilters = JSON.parse(JSON.stringify(widget.adv_filters||[]));
+        const snap = {id, widget_type:wtype, group_by:groupBy, metric, period,
+                      team_filter:teamFilter, filter_open:filterOpen, limit, adv_filters:advFilters};
+        try{
+            const result = await rpc('/hd/dashboard/widget/data', {widget:snap});
+            widget._data = result;
+            if(['bar','donut','line'].includes(wtype) && result?.labels?.length){
+                // Wait for OWL to render the canvas into DOM
+                setTimeout(()=>{
+                    buildChart(
+                        'chart-'+id, wtype, groupBy, colorKey, limit,
+                        result.labels, result.data,
+                        (label)=>this.doDrilldown(label,{
+                            group_by:groupBy, period, team_filter:teamFilter,
+                            filter_open:filterOpen, adv_filters:advFilters,
+                        })
+                    );
+                }, 300);
             }
-        } catch(e) {
-            console.error('Widget fetch error', widget.title, e);
+        } catch(e){
+            console.error('fetchWidget', wtype, e);
             widget._data = null;
         } finally {
             widget._loading = false;
         }
     }
 
-    // ─── Chart rendering ─────────────────────────────────────────────
-
-    destroyChart(id) {
-        if (this.charts[id]) { this.charts[id].destroy(); delete this.charts[id]; }
-    }
-
-    renderChart(widget) {
-        if (!widget._data) return;
-        const canvas = document.getElementById('chart-' + widget.id);
-        if (!canvas) return;
-        this.destroyChart(widget.id);
-        const { labels, data } = widget._data;
-        if (!labels || !data) return;
-        const color  = CHART_COLORS[widget.color] || CHART_COLORS.blue;
-        const limit  = parseInt(widget.limit) || 10;
-
-        if (widget.widget_type === 'donut') {
-            canvas.parentElement.style.height = '200px';
-            this.charts[widget.id] = new window.Chart(canvas, {
-                type: 'doughnut',
-                data: { labels, datasets: [{ data, backgroundColor: PIE_PALETTE, borderWidth: 2, borderColor: '#fff' }] },
-                options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '58%',
-                    plugins: { legend: { display: true, position: 'bottom', labels: { font:{size:10}, boxWidth:10, padding:8 } } },
-                },
+    async doDrilldown(label, meta){
+        try{
+            const r = await rpc('/hd/dashboard/widget/drilldown', {
+                group_by:    meta.group_by,
+                label,
+                period:      meta.period      || '1',
+                team_filter: meta.team_filter || null,
+                filter_open: meta.filter_open || false,
+                adv_filters: meta.adv_filters || [],
             });
-        } else if (widget.widget_type === 'line') {
-            canvas.parentElement.style.height = '180px';
-            this.charts[widget.id] = new window.Chart(canvas, {
-                type: 'line',
-                data: { labels, datasets: [{ data, borderColor: color, backgroundColor: color+'33', tension:.3, fill:true, pointRadius:3 }] },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid:{display:false}, ticks:{color:TLABEL, font:{size:10}, maxRotation:35} },
-                        y: { grid:{color:GRID},    ticks:{color:TLABEL, font:{size:11}} },
-                    },
-                },
-            });
-        } else {
-            const isHoriz = !['date','hour'].includes(widget.group_by);
-            const sl = isHoriz
-                ? { labels: labels.slice(0, limit), data: data.slice(0, limit) }
-                : { labels, data };
-            const h = isHoriz ? Math.max(sl.labels.length * 36 + 40, 80) : 180;
-            canvas.parentElement.style.height = h + 'px';
-            this.charts[widget.id] = new window.Chart(canvas, {
-                type: 'bar',
-                data: { labels: sl.labels, datasets: [{ data: sl.data, backgroundColor: color, borderRadius:4, barThickness:20 }] },
-                options: {
-                    indexAxis: isHoriz ? 'y' : 'x',
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: isHoriz ? {color:GRID} : {display:false}, ticks:{color:TLABEL, font:{size:10}, maxRotation:35, autoSkip:false} },
-                        y: { grid: isHoriz ? {display:false} : {color:GRID}, ticks:{color:TLABEL, font:{size:11}} },
-                    },
-                },
-            });
+            const ids = (r.rows || []).map(row => row.id);
+            if(!ids.length){
+                alert('No tickets found for: ' + label);
+                return;
+            }
+            // Open Odoo native ticket list filtered to these IDs in a new tab
+            const domain = JSON.stringify([['id', 'in', ids]]);
+            window.open('/odoo/helpdesk-tickets?domain=' + encodeURIComponent(domain), '_blank');
+        } catch(e){
+            console.error('drilldown error', e);
         }
     }
 
-    // ─── Edit mode ───────────────────────────────────────────────────
+    closeDrilldown(){ this.state.drilldown = null; }
+    dbadge(r)         { return sbName(r.stage, r.closed); }
+    drilldownBadge(r) { return sbName(r.stage, r.closed); }
+    openTicket(id)    { window.open('/odoo/helpdesk-tickets/' + id, '_blank'); }
 
-    toggleEdit() { this.state.editMode = !this.state.editMode; }
-
-    async refreshAll() { await this.fetchAllWidgets(); }
-
-    async resetLayout() {
-        if (!confirm('Reset to default layout? Your personal layout will be removed.')) return;
-        await jsonRpc('/hd/dashboard/layout/reset', {});
-        await this.loadLayout();
-    }
-
-    async saveMine() {
-        await this._saveLayout(false);
-        alert('Personal layout saved!');
-    }
-
-    async saveDefault() {
-        if (!confirm('Save this layout as the default for all users?')) return;
-        await this._saveLayout(true);
-        alert('Default layout saved for all users!');
-    }
-
-    async _saveLayout(asDefault) {
-        const widgets = this.state.widgets.map((w, i) => ({
-            widget_type:  w.widget_type,
-            title:        w.title,
-            position:     i + 1,
-            size:         w.size,
-            color:        w.color,
-            group_by:     w.group_by || null,
-            metric:       w.metric   || 'open',
-            period:       w.period   || '1',
-            team_filter:  w.team_filter || null,
-            filter_open:  w.filter_open || false,
-            limit:        parseInt(w.limit) || 10,
-        }));
-        await jsonRpc('/hd/dashboard/layout/save', { widgets, save_as_default: asDefault });
-    }
-
-    // ─── Add / Edit widget ───────────────────────────────────────────
-
-    openAddWidget() {
-        this.state.editingWidget = null;
-        this.state.newWidgetType = null;
-        this.state.form = emptyForm();
-        this.state.sidebarOpen = true;
-    }
-
-    selectWidgetType(type) {
-        this.state.newWidgetType = type;
-        this.state.form = emptyForm(type);
-        this.state.form.title = WIDGET_TYPES.find(w => w.type === type)?.name || 'Widget';
-    }
-
-    openEditWidget(widget) {
-        this.state.editingWidget = widget;
-        this.state.newWidgetType = null;
-        this.state.form = {
-            widget_type: widget.widget_type,
-            title:       widget.title,
-            size:        widget.size,
-            color:       widget.color,
-            period:      widget.period      || '1',
-            team_filter: widget.team_filter || '',
-            group_by:    widget.group_by    || 'user',
-            metric:      widget.metric      || 'open',
-            filter_open: widget.filter_open || false,
-            limit:       widget.limit       || 10,
+    getFieldOptions(field){
+        const m = {
+            stage:    this.state.stages.map(s=>({v:s.name,l:s.name})),
+            team:     this.state.teams.map(t=>({v:t.name,l:t.name})),
+            user:     this.state.users.map(u=>({v:u.name,l:u.name})),
+            priority: [{v:'0',l:'Low'},{v:'1',l:'Medium'},{v:'2',l:'High'},{v:'3',l:'Very High'}],
+            type:     this.state.types.map(t=>({v:t.name,l:t.name})),
+            category: this.state.categories.map(c=>({v:c.name,l:c.name})),
+            closed:   [{v:'true',l:'Yes (Closed)'},{v:'false',l:'No (Open)'}],
         };
-        this.state.sidebarOpen = true;
+        return m[field]||[];
+    }
+    addFormFilter()    { this.state.form.adv_filters.push(efilter()); }
+    removeFormFilter(f){ const i=this.state.form.adv_filters.indexOf(f); if(i>-1)this.state.form.adv_filters.splice(i,1); }
+    onFFField(f,ev)    { f.field=ev.target.value; f.value=''; }
+    onFFOp(f,ev)       { f.op=ev.target.value; }
+    onFFVal(f,ev)      { f.value=ev.target.value; }
+    onFFLogic(f,ev)    { f.logic=ev.target.value; }
+
+    filterSummary(w){
+        const p=[];
+        if(w.period&&w.period!=='1') p.push({'3':'3mo','6':'6mo','12':'12mo','0':'All time'}[w.period]||w.period);
+        if(w.team_filter_name) p.push(w.team_filter_name);
+        if(w.filter_open)      p.push('Open only');
+        const a=w.adv_filters||[];
+        if(a.length) p.push(`+${a.length} filter${a.length>1?'s':''}`);
+        return p.join(' · ');
     }
 
-    saveWidget() {
-        const f = this.state.form;
-        if (!f.title.trim()) { alert('Please enter a title.'); return; }
-        if (this.state.editingWidget) {
-            const w = this.state.editingWidget;
-            Object.assign(w, {
-                title: f.title, size: f.size, color: f.color,
-                period: f.period, team_filter: f.team_filter || null,
-                group_by: f.group_by, metric: f.metric,
-                filter_open: f.filter_open, limit: parseInt(f.limit) || 10,
-            });
-            this.destroyChart(w.id);
+    toggleEdit(){ this.state.editMode=!this.state.editMode; }
+    async refreshAll(){ await this.fetchAllWidgets(); }
+    async resetLayout(){ if(!confirm('Reset to default layout?'))return; await rpc('/hd/dashboard/layout/reset',{}); await this.loadLayout(); }
+    async saveMine()   { await this._save(false); alert('Personal layout saved!'); }
+    async saveDefault(){ if(!confirm('Save as default for all users?'))return; await this._save(true); alert('Default layout saved!'); }
+
+    async _save(asDefault){
+        const ws=this.state.widgets.map((w,i)=>({
+            widget_type:w.widget_type, title:w.title, position:i+1,
+            size:w.size, color:w.color, group_by:w.group_by||null,
+            metric:w.metric||'open', period:w.period||'1',
+            team_filter:w.team_filter||null, filter_open:w.filter_open||false,
+            limit:parseInt(w.limit)||10,
+            adv_filters:JSON.parse(JSON.stringify(w.adv_filters||[])),
+        }));
+        await rpc('/hd/dashboard/layout/save',{widgets:ws,save_as_default:asDefault});
+    }
+
+    openAddWidget(){
+        this.state.editingWidget=null; this.state.newWidgetType=null;
+        this.state.form=ef(); this.state.sidebarOpen=true;
+    }
+    selectWidgetType(type){
+        this.state.newWidgetType=type;
+        this.state.form=ef(type);
+        this.state.form.title=W_TYPES.find(w=>w.type===type)?.name||'Widget';
+    }
+    openEditWidget(widget){
+        this.state.editingWidget=widget; this.state.newWidgetType=null;
+        this.state.form={
+            widget_type:  widget.widget_type,
+            title:        widget.title,
+            size:         widget.size,
+            color:        widget.color,
+            period:       widget.period      || '1',
+            team_filter:  widget.team_filter ? String(widget.team_filter) : '',
+            group_by:     widget.group_by    || 'user',
+            metric:       widget.metric      || 'open',
+            filter_open:  widget.filter_open || false,
+            limit:        widget.limit       || 10,
+            adv_filters:  JSON.parse(JSON.stringify(widget.adv_filters||[])),
+        };
+        this.state.sidebarOpen=true;
+    }
+    saveWidget(){
+        const f=this.state.form;
+        if(!f.title.trim()){ alert('Enter a title.'); return; }
+        const team=this.state.teams.find(t=>String(t.id)===String(f.team_filter));
+        const props={
+            title:f.title, size:f.size, color:f.color, period:f.period,
+            team_filter:f.team_filter||null, team_filter_name:team?team.name:'',
+            group_by:f.group_by, metric:f.metric, filter_open:f.filter_open,
+            limit:parseInt(f.limit)||10,
+            adv_filters:JSON.parse(JSON.stringify(f.adv_filters||[])),
+        };
+        if(this.state.editingWidget){
+            const w=this.state.editingWidget;
+            Object.assign(w,props);
+            destroyChart('chart-'+w.id);
             this.fetchWidget(w);
-        } else if (this.state.newWidgetType) {
-            const newW = {
-                id: 'new_' + Date.now(),
-                widget_type: this.state.newWidgetType,
-                title:       f.title,
-                size:        f.size,
-                color:       f.color,
-                period:      f.period,
-                team_filter: f.team_filter || null,
-                group_by:    f.group_by,
-                metric:      f.metric,
-                filter_open: f.filter_open,
-                limit:       parseInt(f.limit) || 10,
-                position:    this.state.widgets.length + 1,
-                _loading:    true,
-                _data:       null,
-            };
-            this.state.widgets.push(newW);
-            this.fetchWidget(newW);
+        } else if(this.state.newWidgetType){
+            const nw={id:'new_'+Date.now(),widget_type:this.state.newWidgetType,
+                ...props,position:this.state.widgets.length+1,_loading:true,_data:null};
+            this.state.widgets.push(nw);
+            this.fetchWidget(nw);
         }
         this.closeSidebar();
     }
-
-    removeWidget(widget) {
-        if (!confirm('Remove this widget?')) return;
-        this.destroyChart(widget.id);
-        const idx = this.state.widgets.indexOf(widget);
-        if (idx > -1) this.state.widgets.splice(idx, 1);
+    removeWidget(widget){
+        if(!confirm('Remove this widget?'))return;
+        destroyChart('chart-'+widget.id);
+        const i=this.state.widgets.indexOf(widget);
+        if(i>-1)this.state.widgets.splice(i,1);
     }
-
-    closeSidebar() {
-        this.state.sidebarOpen  = false;
-        this.state.editingWidget = null;
-        this.state.newWidgetType = null;
+    closeSidebar(){
+        this.state.sidebarOpen=false;
+        this.state.editingWidget=null; this.state.newWidgetType=null;
     }
+    formType(){ return this.state.editingWidget?this.state.editingWidget.widget_type:this.state.newWidgetType; }
 
-    formType() {
-        return this.state.editingWidget
-            ? this.state.editingWidget.widget_type
-            : this.state.newWidgetType;
-    }
-
-    // ─── Drag and drop ───────────────────────────────────────────────
-
-    onDragStart(e, widget) {
-        this.dragSrcId = widget.id;
-        e.currentTarget.classList.add('hd2-dragging');
-    }
-
-    onDragOver(e) {
-        e.preventDefault();
-        e.currentTarget.classList.add('hd2-drag-over');
-    }
-
-    onDragLeave(e) {
+    onDragStart(e,w){ this.dragSrcId=w.id; e.currentTarget.classList.add('hd2-dragging'); }
+    onDragOver(e)   { e.preventDefault(); e.currentTarget.classList.add('hd2-drag-over'); }
+    onDragLeave(e)  { e.currentTarget.classList.remove('hd2-drag-over'); }
+    onDrop(e,tw){
         e.currentTarget.classList.remove('hd2-drag-over');
-    }
-
-    onDrop(e, targetWidget) {
-        e.currentTarget.classList.remove('hd2-drag-over');
-        if (!this.dragSrcId || this.dragSrcId === targetWidget.id) return;
-        const srcIdx = this.state.widgets.findIndex(w => w.id === this.dragSrcId);
-        const tgtIdx = this.state.widgets.findIndex(w => w.id === targetWidget.id);
-        if (srcIdx < 0 || tgtIdx < 0) return;
-        const [moved] = this.state.widgets.splice(srcIdx, 1);
-        this.state.widgets.splice(tgtIdx, 0, moved);
-        this.dragSrcId = null;
-        setTimeout(() => {
-            this.state.widgets.forEach(w => {
-                if (['bar','donut','line'].includes(w.widget_type) && w._data) {
-                    this.renderChart(w);
+        if(!this.dragSrcId||this.dragSrcId===tw.id)return;
+        const si=this.state.widgets.findIndex(w=>w.id===this.dragSrcId);
+        const ti=this.state.widgets.findIndex(w=>w.id===tw.id);
+        if(si<0||ti<0)return;
+        const[m]=this.state.widgets.splice(si,1);
+        this.state.widgets.splice(ti,0,m);
+        this.dragSrcId=null;
+        setTimeout(()=>{
+            this.state.widgets.forEach(w=>{
+                if(['bar','donut','line'].includes(w.widget_type)&&w._data?.labels?.length){
+                    const g=String(w.group_by||''),c=String(w.color||'blue'),
+                          p=String(w.period||'1'),tf=w.team_filter?String(w.team_filter):null,
+                          fo=Boolean(w.filter_open),af=JSON.parse(JSON.stringify(w.adv_filters||[]));
+                    buildChart('chart-'+w.id,w.widget_type,g,c,w.limit,w._data.labels,w._data.data,
+                        (label)=>this.doDrilldown(label,{group_by:g,period:p,team_filter:tf,filter_open:fo,adv_filters:af}));
                 }
             });
-        }, 100);
+        },300);
     }
 
-    // ─── Helpers ─────────────────────────────────────────────────────
-
-    stageBadge(row) { return stageBadge(row); }
+    stageBadge(r)   { return sb(r); }
+    priorityLabel(p){ return pl(p); }
 }
 
 registry.category("actions").add("hd_dashboard", HdDashboard);

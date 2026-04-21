@@ -1,6 +1,7 @@
 /** @odoo-module **/
 import { registry } from "@web/core/registry";
 import { Component, onMounted, useState } from "@odoo/owl";
+import { useService } from "@web/core/utils/hooks";
 import { loadJS } from "@web/core/assets";
 
 const PIE  = ['#378ADD','#EF9F27','#1D9E75','#D85A30','#534AB7','#E24B4A','#639922','#FAC775','#9FE1CB','#F4C0D1'];
@@ -205,6 +206,7 @@ export class HdDashboard extends Component {
             form:ef(),
             drilldown:null,
         });
+        this.actionService = useService("action");
         this.dragSrcId   = null;
         this.widgetTypes  = W_TYPES;
         this.filterFields = F_FIELDS;
@@ -236,6 +238,7 @@ export class HdDashboard extends Component {
             this.state.types      = d.types      || [];
             this.state.categories = d.categories || [];
             this.state.isManager  = d.is_manager || false;
+            this._ticketActionId = d.ticket_action_id || false;
             this.state.widgets    = d.widgets.map(w=>({...w,_loading:true,_data:null}));
             await this.fetchAllWidgets();
         } catch(e){ console.error('loadLayout', e); }
@@ -295,14 +298,25 @@ export class HdDashboard extends Component {
                 filter_open: meta.filter_open || false,
                 adv_filters: meta.adv_filters || [],
             });
-            const ids = (r.rows || []).map(row => row.id);
+            const ids = r.ids || (r.rows||[]).map(row=>row.id);
             if(!ids.length){
                 alert('No tickets found for: ' + label);
                 return;
             }
-            // Open Odoo native ticket list filtered to these IDs in a new tab
-            const domain = JSON.stringify([['id', 'in', ids]]);
-            window.open('/odoo/helpdesk-tickets?domain=' + encodeURIComponent(domain), '_blank');
+            // Use Odoo 18 web client URL format with action ID and domain in hash
+            // This opens the native Odoo list view properly filtered
+            const actionId = this._ticketActionId;
+            const domain   = JSON.stringify([['id','in', ids]]);
+            // Use Odoo action service to open filtered list
+            await this.actionService.doAction({
+                type:      'ir.actions.act_window',
+                name:      'Tickets: ' + label,
+                res_model: 'helpdesk.ticket',
+                view_mode: 'list,form',
+                views:     [[false, 'list'], [false, 'form']],
+                domain:    [['id', 'in', ids]],
+                target:    'new',
+            });
         } catch(e){
             console.error('drilldown error', e);
         }
@@ -311,7 +325,15 @@ export class HdDashboard extends Component {
     closeDrilldown(){ this.state.drilldown = null; }
     dbadge(r)         { return sbName(r.stage, r.closed); }
     drilldownBadge(r) { return sbName(r.stage, r.closed); }
-    openTicket(id)    { window.open('/odoo/helpdesk-tickets/' + id, '_blank'); }
+    openTicket(id){
+        this.actionService.doAction({
+            type:        'ir.actions.act_window',
+            res_model:   'helpdesk.ticket',
+            res_id:      id,
+            views:       [[false, 'form']],
+            target:      'new',
+        });
+    }
 
     getFieldOptions(field){
         const m = {

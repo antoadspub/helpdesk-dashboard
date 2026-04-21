@@ -13,22 +13,18 @@ def _check_access():
 
 def _build_domain(period, team_filter, filter_open, adv_filters):
     domain = []
-    # Period
     if period and str(period) != '0':
         domain.append(('create_date', '>=', datetime.now() - timedelta(days=int(period)*30)))
-    # Team
     if team_filter:
         domain.append(('team_id', '=', int(team_filter)))
-    # Open only
     if filter_open:
         domain.append(('closed', '=', False))
-    # Advanced filters
     if adv_filters:
         and_conds, or_conds = [], []
         for f in adv_filters:
             cond = _single_cond(f)
             if cond:
-                (or_conds if f.get('logic') == 'OR' else and_conds).append(cond)
+                (or_conds if f.get('logic')=='OR' else and_conds).append(cond)
         domain.extend(and_conds)
         if or_conds:
             or_domain = []
@@ -67,7 +63,7 @@ class HelpdeskDashboard(http.Controller):
     def layout_get(self, **kw):
         if not _check_access():
             return {'error': 'Access denied'}
-        layout = request.env['hd.dashboard.layout'].get_layout()
+        layout     = request.env['hd.dashboard.layout'].get_layout()
         teams      = request.env['helpdesk.ticket.team'].search([])
         stages     = request.env['helpdesk.ticket.stage'].search([])
         users      = request.env['res.users'].search([('share','=',False),('active','=',True)])
@@ -75,16 +71,19 @@ class HelpdeskDashboard(http.Controller):
         types = []
         if 'helpdesk.ticket.type' in request.env:
             types = request.env['helpdesk.ticket.type'].search([])
+        # Get the action ID for helpdesk tickets list
+        action = request.env.ref('helpdesk_mgmt.helpdesk_ticket_action', raise_if_not_found=False)
         return {
-            'layout_id':  layout.id,
-            'is_default': layout.is_default,
-            'is_manager': request.env.user.has_group('helpdesk_mgmt.group_helpdesk_manager'),
-            'widgets':    [w.to_dict() for w in layout.widget_ids],
-            'teams':      [{'id':t.id,'name':t.name} for t in teams],
-            'stages':     [{'id':s.id,'name':s.name,'closed':s.closed} for s in stages],
-            'users':      [{'id':u.id,'name':u.name} for u in users],
-            'types':      [{'id':t.id,'name':t.name} for t in types],
-            'categories': [{'id':c.id,'name':c.name} for c in categories],
+            'layout_id':       layout.id,
+            'is_default':      layout.is_default,
+            'is_manager':      request.env.user.has_group('helpdesk_mgmt.group_helpdesk_manager'),
+            'widgets':         [w.to_dict() for w in layout.widget_ids],
+            'teams':           [{'id':t.id,'name':t.name} for t in teams],
+            'stages':          [{'id':s.id,'name':s.name,'closed':s.closed} for s in stages],
+            'users':           [{'id':u.id,'name':u.name} for u in users],
+            'types':           [{'id':t.id,'name':t.name} for t in types],
+            'categories':      [{'id':c.id,'name':c.name} for c in categories],
+            'ticket_action_id': action.id if action else False,
         }
 
     @http.route('/hd/dashboard/layout/save', type='json', auth='user')
@@ -166,6 +165,8 @@ class HelpdeskDashboard(http.Controller):
             return {'error': 'Access denied'}
         Ticket = request.env['helpdesk.ticket']
         domain = _build_domain(period, team_filter, filter_open, adv_filters or [])
+
+        # Add segment-specific filter
         if group_by == 'user':
             if label == 'Unassigned':
                 domain.append(('user_id','=',False))
@@ -209,16 +210,18 @@ class HelpdeskDashboard(http.Controller):
                            ('create_date','<',(d+timedelta(days=1)).strftime('%Y-%m-%d'))]
             except Exception:
                 pass
-        tickets = Ticket.search(domain, limit=100)
-        rows = [{'id':t.id,'number':t.number,'name':t.name,
-                 'stage':t.stage_id.name if t.stage_id else '',
-                 'closed':t.stage_id.closed if t.stage_id else False,
-                 'user':t.user_id.name if t.user_id else 'Unassigned',
-                 'team':t.team_id.name if t.team_id else '',
-                 'priority':t.priority,
-                 'date':t.create_date.strftime('%d/%m/%y') if t.create_date else ''}
-                for t in tickets]
-        return {'rows': rows, 'label': label, 'total': len(rows)}
+
+        tickets = Ticket.search(domain, limit=500)
+        ids     = tickets.ids
+        rows    = [{'id':t.id,'number':t.number,'name':t.name,
+                    'stage':t.stage_id.name if t.stage_id else '',
+                    'closed':t.stage_id.closed if t.stage_id else False,
+                    'user':t.user_id.name if t.user_id else 'Unassigned',
+                    'team':t.team_id.name if t.team_id else '',
+                    'priority':t.priority,
+                    'date':t.create_date.strftime('%d/%m/%y') if t.create_date else ''}
+                   for t in tickets]
+        return {'rows': rows, 'ids': ids, 'label': label, 'total': len(rows)}
 
     def _counter(self, Ticket, metric, domain):
         if metric == 'open':
@@ -238,7 +241,7 @@ class HelpdeskDashboard(http.Controller):
             count = Ticket.search_count(domain)
             sub   = 'This period'
         elif metric == 'avg_time':
-            tickets = Ticket.search(domain + [('closed_date','!=',False),('assigned_date','!=',False)])
+            tickets = Ticket.search(domain+[('closed_date','!=',False),('assigned_date','!=',False)])
             times = [(t.closed_date-t.assigned_date).total_seconds()/3600
                      for t in tickets if t.closed_date and t.assigned_date]
             count = round(sum(times)/len(times),1) if times else 0
@@ -249,73 +252,72 @@ class HelpdeskDashboard(http.Controller):
         stage_counts = {}
         for t in Ticket.search([('closed','=',False)]):
             sn = t.stage_id.name if t.stage_id else 'No Stage'
-            stage_counts[sn] = stage_counts.get(sn, 0) + 1
-        return {'value': count, 'sub': sub, 'stage_counts': stage_counts}
+            stage_counts[sn] = stage_counts.get(sn,0)+1
+        return {'value':count,'sub':sub,'stage_counts':stage_counts}
 
     def _chart(self, Ticket, group_by, domain, limit):
         if not group_by:
-            return {'labels':[], 'data':[]}
+            return {'labels':[],'data':[]}
         tickets = Ticket.search(domain)
         counts  = defaultdict(int)
         if group_by == 'user':
-            for t in tickets: counts[t.user_id.name if t.user_id else 'Unassigned'] += 1
+            for t in tickets: counts[t.user_id.name if t.user_id else 'Unassigned']+=1
         elif group_by == 'team':
-            for t in tickets: counts[t.team_id.name if t.team_id else 'No Team'] += 1
+            for t in tickets: counts[t.team_id.name if t.team_id else 'No Team']+=1
         elif group_by == 'type':
-            for t in tickets:
-                counts[(t.type_id.name if hasattr(t,'type_id') and t.type_id else 'No Type')] += 1
+            for t in tickets: counts[(t.type_id.name if hasattr(t,'type_id') and t.type_id else 'No Type')]+=1
         elif group_by == 'stage':
-            for t in tickets: counts[t.stage_id.name if t.stage_id else 'No Stage'] += 1
+            for t in tickets: counts[t.stage_id.name if t.stage_id else 'No Stage']+=1
         elif group_by == 'priority':
-            pm = {'0':'Low','1':'Medium','2':'High','3':'Very High'}
-            for t in tickets: counts[pm.get(t.priority, t.priority)] += 1
+            pm={'0':'Low','1':'Medium','2':'High','3':'Very High'}
+            for t in tickets: counts[pm.get(t.priority,t.priority)]+=1
         elif group_by == 'category':
-            for t in tickets: counts[t.category_id.name if t.category_id else 'No Category'] += 1
+            for t in tickets: counts[t.category_id.name if t.category_id else 'No Category']+=1
         elif group_by == 'channel':
-            for t in tickets: counts[t.channel_id.name if t.channel_id else 'No Channel'] += 1
+            for t in tickets: counts[t.channel_id.name if t.channel_id else 'No Channel']+=1
         elif group_by == 'date':
             for t in tickets:
-                if t.create_date: counts[t.create_date.strftime('%d/%m/%y')] += 1
-            sc = sorted(counts.items(), key=lambda x: datetime.strptime(x[0],'%d/%m/%y'))[-limit:]
+                if t.create_date: counts[t.create_date.strftime('%d/%m/%y')]+=1
+            sc=sorted(counts.items(),key=lambda x:datetime.strptime(x[0],'%d/%m/%y'))[-limit:]
             return {'labels':[x[0] for x in sc],'data':[x[1] for x in sc]}
         elif group_by == 'hour':
             for t in tickets:
-                if t.create_date: counts[f"{t.create_date.hour:02d}:00"] += 1
-            sc = sorted(counts.items())
+                if t.create_date: counts[f"{t.create_date.hour:02d}:00"]+=1
+            sc=sorted(counts.items())
             return {'labels':[x[0] for x in sc],'data':[x[1] for x in sc]}
-        sc = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:limit]
+        sc=sorted(counts.items(),key=lambda x:x[1],reverse=True)[:limit]
         return {'labels':[x[0] for x in sc],'data':[x[1] for x in sc]}
 
     def _leaderboard(self, Ticket, metric, domain, limit):
-        if metric == 'closed':
-            d = list(domain) + [('closed','=',True)]
-            tickets = Ticket.search(d)
-            counts  = defaultdict(int)
+        if metric=='closed':
+            d=list(domain)+[('closed','=',True)]
+            tickets=Ticket.search(d)
+            counts=defaultdict(int)
             for t in tickets:
-                if t.user_id: counts[t.user_id.name] += 1
-            rows = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:limit]
+                if t.user_id: counts[t.user_id.name]+=1
+            rows=sorted(counts.items(),key=lambda x:x[1],reverse=True)[:limit]
             return {'rows':[{'name':r[0],'value':r[1],'label':'closed'} for r in rows]}
-        elif metric == 'avg_time':
-            d = list(domain) + [('closed_date','!=',False),('assigned_date','!=',False)]
-            tickets = Ticket.search(d)
-            times = defaultdict(list)
+        elif metric=='avg_time':
+            d=list(domain)+[('closed_date','!=',False),('assigned_date','!=',False)]
+            tickets=Ticket.search(d)
+            times=defaultdict(list)
             for t in tickets:
                 if t.user_id and t.closed_date and t.assigned_date:
                     times[t.user_id.name].append((t.closed_date-t.assigned_date).total_seconds()/3600)
-            rows = [(n,round(sum(h)/len(h),1)) for n,h in times.items()]
-            rows.sort(key=lambda x: x[1])
+            rows=[(n,round(sum(h)/len(h),1)) for n,h in times.items()]
+            rows.sort(key=lambda x:x[1])
             return {'rows':[{'name':r[0],'value':r[1],'label':'hrs'} for r in rows[:limit]]}
         else:
-            d = list(domain) + [('closed','=',False)]
-            tickets = Ticket.search(d)
-            counts  = defaultdict(int)
+            d=list(domain)+[('closed','=',False)]
+            tickets=Ticket.search(d)
+            counts=defaultdict(int)
             for t in tickets:
-                if t.user_id: counts[t.user_id.name] += 1
-            rows = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:limit]
+                if t.user_id: counts[t.user_id.name]+=1
+            rows=sorted(counts.items(),key=lambda x:x[1],reverse=True)[:limit]
             return {'rows':[{'name':r[0],'value':r[1],'label':'open'} for r in rows]}
 
     def _activity(self, Ticket, domain, limit):
-        tickets = Ticket.search(domain, order='write_date desc', limit=limit)
+        tickets=Ticket.search(domain,order='write_date desc',limit=limit)
         return {'rows':[{'id':t.id,'number':t.number,'name':t.name,
             'stage':t.stage_id.name if t.stage_id else '',
             'closed':t.stage_id.closed if t.stage_id else False,
@@ -326,8 +328,67 @@ class HelpdeskDashboard(http.Controller):
             'date':t.write_date.strftime('%d/%m/%y %H:%M') if t.write_date else ''}
             for t in tickets]}
 
+
+    @http.route('/hd/dashboard/tickets/view', type='http', auth='user')
+    def tickets_view(self, ids='', label='', **kw):
+        """Open a page that uses Odoo web client to show filtered tickets."""
+        if not ids:
+            return request.redirect('/odoo/helpdesk-tickets')
+
+        id_list = [int(x) for x in ids.split(',') if x.strip().isdigit()]
+        if not id_list:
+            return request.redirect('/odoo/helpdesk-tickets')
+
+        # Get action ID
+        action = request.env.ref('helpdesk_mgmt.helpdesk_ticket_action', raise_if_not_found=False)
+        action_id = action.id if action else 0
+
+        import json as _json
+        domain_json = _json.dumps([['id', 'in', id_list]])
+        label_safe  = label.replace("'", "&#39;").replace('"', '&quot;')
+        ids_js      = _json.dumps(id_list)
+
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Tickets: {label_safe}</title>
+<script>
+// Wait for Odoo web client to be ready, then trigger action with domain
+window.addEventListener('load', function() {{
+    var ids    = {ids_js};
+    var actId  = {action_id};
+    var domain = [['id', 'in', ids]];
+    // Use Odoo's webclient action manager
+    function tryOpen() {{
+        var owl = window.__owl__;
+        var env = window.__odoo_debug_env__;
+        // Try Odoo 18 service approach
+        if(window.odoo && window.odoo.loader) {{
+            try {{
+                var services = window.odoo.__apps;
+            }} catch(e) {{}}
+        }}
+        // Fallback: use URL with proper Odoo format
+        var url = '/odoo/helpdesk-tickets?action=' + actId;
+        // Store filter in sessionStorage so Odoo can pick it up
+        sessionStorage.setItem('hd_drilldown_ids', JSON.stringify(ids));
+        sessionStorage.setItem('hd_drilldown_label', {_json.dumps(label)});
+        window.location.href = url;
+    }}
+    tryOpen();
+}});
+</script>
+</head>
+<body style="font-family:sans-serif;padding:40px;text-align:center;color:#888">
+    <p>Opening filtered tickets for: <strong>{label_safe}</strong></p>
+    <p>Tickets found: <strong>{len(id_list)}</strong></p>
+</body>
+</html>"""
+        return request.make_response(html, headers=[('Content-Type', 'text/html')])
+
     def _table(self, Ticket, domain, limit):
-        tickets = Ticket.search(domain, order='create_date desc', limit=limit)
+        tickets=Ticket.search(domain,order='create_date desc',limit=limit)
         return {'rows':[{'id':t.id,'number':t.number,'name':t.name,
             'stage':t.stage_id.name if t.stage_id else '',
             'closed':t.stage_id.closed if t.stage_id else False,

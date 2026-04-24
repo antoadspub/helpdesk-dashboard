@@ -488,4 +488,7 @@ export class HdDashboard extends Component {
     priorityLabel(p){ return pl(p); }
 }
 
-registry.category("actions").add("hd_dashboard", HdDashboard);
+const actionRegistry = registry.category("actions");
+actionRegistry.add("hd_dashboard", HdDashboard, { force: true });
+// Backward-compatible alias for environments/databases that may still reference a namespaced tag
+actionRegistry.add("helpdesk_dashboard.hd_dashboard", HdDashboard, { force: true });

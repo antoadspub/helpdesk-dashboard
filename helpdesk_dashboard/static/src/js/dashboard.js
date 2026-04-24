@@ -359,6 +359,11 @@ export class HdDashboard extends Component {
     onFFOp(f,ev)       { f.op=ev.target.value; }
     onFFVal(f,ev)      { f.value=ev.target.value; }
     onFFLogic(f,ev)    { f.logic=ev.target.value; }
+    // Backward-compatible handlers referenced by the template
+    onFormFilterField(f,ev){ this.onFFField(f,ev); }
+    onFormFilterOp(f,ev)   { this.onFFOp(f,ev); }
+    onFormFilterVal(f,ev)  { this.onFFVal(f,ev); }
+    onFormFilterLogic(f,ev){ this.onFFLogic(f,ev); }
 
     filterSummary(w){
         const p=[];
@@ -450,14 +455,18 @@ export class HdDashboard extends Component {
     }
     formType(){ return this.state.editingWidget?this.state.editingWidget.widget_type:this.state.newWidgetType; }
 
-    onDragStart(e,w){ this.dragSrcId=w.id; e.currentTarget.classList.add('hd2-dragging'); }
+    onDragStart(e,w){
+        this.dragSrcId=String(w.id);
+        e.currentTarget.classList.add('hd2-dragging');
+    }
     onDragOver(e)   { e.preventDefault(); e.currentTarget.classList.add('hd2-drag-over'); }
     onDragLeave(e)  { e.currentTarget.classList.remove('hd2-drag-over'); }
     onDrop(e,tw){
         e.currentTarget.classList.remove('hd2-drag-over');
-        if(!this.dragSrcId||this.dragSrcId===tw.id)return;
-        const si=this.state.widgets.findIndex(w=>w.id===this.dragSrcId);
-        const ti=this.state.widgets.findIndex(w=>w.id===tw.id);
+        const targetId = String(tw.id);
+        if(!this.dragSrcId||this.dragSrcId===targetId)return;
+        const si=this.state.widgets.findIndex(w=>String(w.id)===this.dragSrcId);
+        const ti=this.state.widgets.findIndex(w=>String(w.id)===targetId);
         if(si<0||ti<0)return;
         const[m]=this.state.widgets.splice(si,1);
         this.state.widgets.splice(ti,0,m);

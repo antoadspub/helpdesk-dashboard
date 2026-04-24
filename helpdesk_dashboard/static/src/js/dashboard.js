@@ -193,6 +193,21 @@ function buildChart(canvasId, type, groupBy, colorKey, limit, labels, data, onCl
     canvas.addEventListener('click', clickHandler);
 }
 
+function drawChartWhenReady(canvasId, type, groupBy, colorKey, limit, labels, data, onClickFn, tries=12){
+    const exists = document.getElementById(canvasId);
+    if(exists){
+        buildChart(canvasId, type, groupBy, colorKey, limit, labels, data, onClickFn);
+        return;
+    }
+    if(tries <= 0){
+        console.warn('Chart canvas never became available:', canvasId);
+        return;
+    }
+    setTimeout(()=>{
+        drawChartWhenReady(canvasId, type, groupBy, colorKey, limit, labels, data, onClickFn, tries-1);
+    }, 120);
+}
+
 export class HdDashboard extends Component {
     static template = "hd_dashboard.Dashboard";
 
@@ -268,17 +283,14 @@ export class HdDashboard extends Component {
             const result = await rpc('/hd/dashboard/widget/data', {widget:snap});
             widget._data = result;
             if(['bar','donut','line'].includes(wtype) && result?.labels?.length){
-                // Wait for OWL to render the canvas into DOM
-                setTimeout(()=>{
-                    buildChart(
-                        'chart-'+id, wtype, groupBy, colorKey, limit,
-                        result.labels, result.data,
-                        (label)=>this.doDrilldown(label,{
-                            group_by:groupBy, period, team_filter:teamFilter,
-                            filter_open:filterOpen, adv_filters:advFilters,
-                        })
-                    );
-                }, 300);
+                drawChartWhenReady(
+                    'chart-'+id, wtype, groupBy, colorKey, limit,
+                    result.labels, result.data,
+                    (label)=>this.doDrilldown(label,{
+                        group_by:groupBy, period, team_filter:teamFilter,
+                        filter_open:filterOpen, adv_filters:advFilters,
+                    })
+                );
             }
         } catch(e){
             console.error('fetchWidget', wtype, e);
@@ -359,6 +371,11 @@ export class HdDashboard extends Component {
     onFFOp(f,ev)       { f.op=ev.target.value; }
     onFFVal(f,ev)      { f.value=ev.target.value; }
     onFFLogic(f,ev)    { f.logic=ev.target.value; }
+    // Backward-compatible handlers referenced by the template
+    onFormFilterField(f,ev){ this.onFFField(f,ev); }
+    onFormFilterOp(f,ev)   { this.onFFOp(f,ev); }
+    onFormFilterVal(f,ev)  { this.onFFVal(f,ev); }
+    onFormFilterLogic(f,ev){ this.onFFLogic(f,ev); }
 
     filterSummary(w){
         const p=[];
@@ -450,14 +467,31 @@ export class HdDashboard extends Component {
     }
     formType(){ return this.state.editingWidget?this.state.editingWidget.widget_type:this.state.newWidgetType; }
 
-    onDragStart(e,w){ this.dragSrcId=w.id; e.currentTarget.classList.add('hd2-dragging'); }
+    onDragStart(e,w){
+        this.dragSrcId=String(w.id);
+        if(e.dataTransfer){
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.dropEffect = 'move';
+            e.dataTransfer.setData('text/plain', this.dragSrcId);
+        }
+        e.currentTarget.classList.add('hd2-dragging');
+    }
+    onDragEnd(e){
+        e.currentTarget.classList.remove('hd2-dragging');
+        document.querySelectorAll('.hd2-drag-over').forEach(el=>el.classList.remove('hd2-drag-over'));
+        // In some browsers dragend can fire before drop; clear source on next tick.
+        setTimeout(()=>{ this.dragSrcId = null; }, 0);
+    }
     onDragOver(e)   { e.preventDefault(); e.currentTarget.classList.add('hd2-drag-over'); }
     onDragLeave(e)  { e.currentTarget.classList.remove('hd2-drag-over'); }
     onDrop(e,tw){
+        e.preventDefault();
         e.currentTarget.classList.remove('hd2-drag-over');
-        if(!this.dragSrcId||this.dragSrcId===tw.id)return;
-        const si=this.state.widgets.findIndex(w=>w.id===this.dragSrcId);
-        const ti=this.state.widgets.findIndex(w=>w.id===tw.id);
+        const targetId = String(tw.id);
+        const srcId = String(this.dragSrcId || (e.dataTransfer?.getData('text/plain') || ''));
+        if(!srcId||srcId===targetId)return;
+        const si=this.state.widgets.findIndex(w=>String(w.id)===srcId);
+        const ti=this.state.widgets.findIndex(w=>String(w.id)===targetId);
         if(si<0||ti<0)return;
         const[m]=this.state.widgets.splice(si,1);
         this.state.widgets.splice(ti,0,m);
@@ -479,4 +513,7 @@ export class HdDashboard extends Component {
     priorityLabel(p){ return pl(p); }
 }
 
-registry.category("actions").add("hd_dashboard", HdDashboard);
+const actionRegistry = registry.category("actions");
+actionRegistry.add("hd_dashboard", HdDashboard, { force: true });
+// Backward-compatible alias for environments/databases that may still reference a namespaced tag
+actionRegistry.add("helpdesk_dashboard.hd_dashboard", HdDashboard, { force: true });

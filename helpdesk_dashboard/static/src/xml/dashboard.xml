@@ -23,6 +23,13 @@
     </div>
   </div>
 
+  <!-- Edit mode hint -->
+  <t t-if="state.editMode">
+    <div class="hd2-edit-hint">
+      ✦ Edit mode — drag widgets to reorder · click ✎ to configure · click ✕ to remove
+    </div>
+  </t>
+
   <!-- Loading -->
   <t t-if="state.loading">
     <div class="hd2-loading">Loading dashboard...</div>

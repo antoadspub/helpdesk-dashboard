@@ -307,15 +307,21 @@ export class HdDashboard extends Component {
             // This opens the native Odoo list view properly filtered
             const actionId = this._ticketActionId;
             const domain   = JSON.stringify([['id','in', ids]]);
-            // Use Odoo action service to open filtered list
+            // Open filtered ticket list — 'current' target so clicking a row
+            // opens the form view and tickets can be edited directly
             await this.actionService.doAction({
-                type:      'ir.actions.act_window',
-                name:      'Tickets: ' + label,
-                res_model: 'helpdesk.ticket',
-                view_mode: 'list,form',
-                views:     [[false, 'list'], [false, 'form']],
-                domain:    [['id', 'in', ids]],
-                target:    'new',
+                type:        'ir.actions.act_window',
+                name:        'Tickets: ' + label,
+                res_model:   'helpdesk.ticket',
+                view_mode:   'list,form',
+                views:       [[false, 'list'], [false, 'form']],
+                domain:      [['id', 'in', ids]],
+                target:      'current',
+                context: {
+                    create: false,
+                },
+            }, {
+                onClose: () => { /* back to dashboard */ }
             });
         } catch(e){
             console.error('drilldown error', e);
@@ -327,11 +333,11 @@ export class HdDashboard extends Component {
     drilldownBadge(r) { return sbName(r.stage, r.closed); }
     openTicket(id){
         this.actionService.doAction({
-            type:        'ir.actions.act_window',
-            res_model:   'helpdesk.ticket',
-            res_id:      id,
-            views:       [[false, 'form']],
-            target:      'new',
+            type:      'ir.actions.act_window',
+            res_model: 'helpdesk.ticket',
+            res_id:    id,
+            views:     [[false, 'form']],
+            target:    'current',
         });
     }
 

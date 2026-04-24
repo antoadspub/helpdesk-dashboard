@@ -141,3 +141,14 @@
     .hd2-widget-small,.hd2-widget-third,.hd2-widget-half { width:100%; }
     .hd2-sidebar { width:100%; }
 }
+
+/* Edit mode hint banner */
+.hd2-edit-hint {
+    background: #e6f1fb;
+    color: #0c447c;
+    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    border: 1px solid #b5d4f4;
+}

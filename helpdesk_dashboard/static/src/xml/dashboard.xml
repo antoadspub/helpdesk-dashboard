@@ -43,6 +43,7 @@
              t-att-data-widget-id="widget.id"
              t-att-draggable="state.editMode"
              t-on-dragstart="(e) => this.onDragStart(e, widget)"
+             t-on-dragend="onDragEnd"
              t-on-dragover="onDragOver"
              t-on-drop="(e) => this.onDrop(e, widget)"
              t-on-dragleave="onDragLeave">

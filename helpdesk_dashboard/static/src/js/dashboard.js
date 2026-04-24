@@ -193,6 +193,21 @@ function buildChart(canvasId, type, groupBy, colorKey, limit, labels, data, onCl
     canvas.addEventListener('click', clickHandler);
 }
 
+function drawChartWhenReady(canvasId, type, groupBy, colorKey, limit, labels, data, onClickFn, tries=12){
+    const exists = document.getElementById(canvasId);
+    if(exists){
+        buildChart(canvasId, type, groupBy, colorKey, limit, labels, data, onClickFn);
+        return;
+    }
+    if(tries <= 0){
+        console.warn('Chart canvas never became available:', canvasId);
+        return;
+    }
+    setTimeout(()=>{
+        drawChartWhenReady(canvasId, type, groupBy, colorKey, limit, labels, data, onClickFn, tries-1);
+    }, 120);
+}
+
 export class HdDashboard extends Component {
     static template = "hd_dashboard.Dashboard";
 
@@ -268,17 +283,14 @@ export class HdDashboard extends Component {
             const result = await rpc('/hd/dashboard/widget/data', {widget:snap});
             widget._data = result;
             if(['bar','donut','line'].includes(wtype) && result?.labels?.length){
-                // Wait for OWL to render the canvas into DOM
-                setTimeout(()=>{
-                    buildChart(
-                        'chart-'+id, wtype, groupBy, colorKey, limit,
-                        result.labels, result.data,
-                        (label)=>this.doDrilldown(label,{
-                            group_by:groupBy, period, team_filter:teamFilter,
-                            filter_open:filterOpen, adv_filters:advFilters,
-                        })
-                    );
-                }, 300);
+                drawChartWhenReady(
+                    'chart-'+id, wtype, groupBy, colorKey, limit,
+                    result.labels, result.data,
+                    (label)=>this.doDrilldown(label,{
+                        group_by:groupBy, period, team_filter:teamFilter,
+                        filter_open:filterOpen, adv_filters:advFilters,
+                    })
+                );
             }
         } catch(e){
             console.error('fetchWidget', wtype, e);
@@ -457,11 +469,22 @@ export class HdDashboard extends Component {
 
     onDragStart(e,w){
         this.dragSrcId=String(w.id);
+        if(e.dataTransfer){
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.dropEffect = 'move';
+            e.dataTransfer.setData('text/plain', this.dragSrcId);
+        }
         e.currentTarget.classList.add('hd2-dragging');
+    }
+    onDragEnd(e){
+        this.dragSrcId = null;
+        e.currentTarget.classList.remove('hd2-dragging');
+        document.querySelectorAll('.hd2-drag-over').forEach(el=>el.classList.remove('hd2-drag-over'));
     }
     onDragOver(e)   { e.preventDefault(); e.currentTarget.classList.add('hd2-drag-over'); }
     onDragLeave(e)  { e.currentTarget.classList.remove('hd2-drag-over'); }
     onDrop(e,tw){
+        e.preventDefault();
         e.currentTarget.classList.remove('hd2-drag-over');
         const targetId = String(tw.id);
         if(!this.dragSrcId||this.dragSrcId===targetId)return;

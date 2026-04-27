@@ -477,9 +477,10 @@ export class HdDashboard extends Component {
         e.currentTarget.classList.add('hd2-dragging');
     }
     onDragEnd(e){
-        this.dragSrcId = null;
         e.currentTarget.classList.remove('hd2-dragging');
         document.querySelectorAll('.hd2-drag-over').forEach(el=>el.classList.remove('hd2-drag-over'));
+        // In some browsers dragend can fire before drop; clear source on next tick.
+        setTimeout(()=>{ this.dragSrcId = null; }, 0);
     }
     onDragOver(e)   { e.preventDefault(); e.currentTarget.classList.add('hd2-drag-over'); }
     onDragLeave(e)  { e.currentTarget.classList.remove('hd2-drag-over'); }
@@ -487,8 +488,9 @@ export class HdDashboard extends Component {
         e.preventDefault();
         e.currentTarget.classList.remove('hd2-drag-over');
         const targetId = String(tw.id);
-        if(!this.dragSrcId||this.dragSrcId===targetId)return;
-        const si=this.state.widgets.findIndex(w=>String(w.id)===this.dragSrcId);
+        const srcId = String(this.dragSrcId || (e.dataTransfer?.getData('text/plain') || ''));
+        if(!srcId||srcId===targetId)return;
+        const si=this.state.widgets.findIndex(w=>String(w.id)===srcId);
         const ti=this.state.widgets.findIndex(w=>String(w.id)===targetId);
         if(si<0||ti<0)return;
         const[m]=this.state.widgets.splice(si,1);

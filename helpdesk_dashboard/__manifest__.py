@@ -2,7 +2,8 @@
     'name': 'Helpdesk Dashboard',
     'version': '18.0.1.0.0',
     'summary': 'Fully configurable helpdesk dashboard for managers and team leaders',
-    'author': 'Custom',
+    'author': 'Anto Vincent',
+    "category": "Helpdesk",
     'depends': ['helpdesk_mgmt', 'helpdesk_type', 'web'],
     'data': [
         'security/ir.model.access.csv',
